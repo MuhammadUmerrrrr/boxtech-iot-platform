@@ -1,0 +1,96 @@
+# OPTIONAL - mitigation for the Sandbox 12-hour pod reaper.
+#
+# The Developer Sandbox FAQ states: "Pods are automatically deleted after
+# running for 12 consecutive hours." This is runtime-based, not traffic-based -
+# keeping the demo busy does NOT prevent it. When it fires, the Deployments are
+# scaled to zero and the public Route returns 503 until something scales them
+# back up.
+#
+# This CronJob scales the three Deployments back to 1 every 20 minutes, so the
+# stack self-heals within ~20 min + startup time instead of staying down until
+# you notice. Its own pods are short-lived and are never reaped.
+#
+# THIS MAY BE REJECTED. Creating Roles and RoleBindings requires permissions the
+# Sandbox does not always grant to its users. If `oc apply` on this file fails
+# with a "forbidden" error, skip it - everything else still works, and you
+# revive the stack manually with the command in README.md "Waking the demo".
+#
+# Apply separately, on purpose:
+#   oc apply -f deploy/openshift/09-keepalive-cronjob.yaml -n muhammadumer-dev
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: boxtech-keepalive
+  labels:
+    app.kubernetes.io/part-of: boxtech-iot-platform
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: boxtech-keepalive
+  labels:
+    app.kubernetes.io/part-of: boxtech-iot-platform
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments", "deployments/scale"]
+    verbs: ["get", "list", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: boxtech-keepalive
+  labels:
+    app.kubernetes.io/part-of: boxtech-iot-platform
+subjects:
+  - kind: ServiceAccount
+    name: boxtech-keepalive
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: boxtech-keepalive
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: boxtech-keepalive
+  labels:
+    app.kubernetes.io/part-of: boxtech-iot-platform
+spec:
+  schedule: "*/20 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          serviceAccountName: boxtech-keepalive
+          restartPolicy: OnFailure
+          containers:
+            - name: scaler
+              image: quay.io/openshift/origin-cli:latest
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -eu
+                  # Order matters: database first, then the platform, then the
+                  # simulator, so nothing starts against a missing dependency.
+                  for d in boxtech-postgres boxtech-platform boxtech-simulator; do
+                    current=$(oc get deployment/"$d" -o jsonpath='{.spec.replicas}' 2>/dev/null || echo missing)
+                    if [ "$current" = "0" ]; then
+                      echo "[keepalive] $d is scaled to 0, scaling up"
+                      oc scale deployment/"$d" --replicas=1
+                    else
+                      echo "[keepalive] $d replicas=$current, nothing to do"
+                    fi
+                  done
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 64Mi
+                limits:
+                  cpu: 100m
+                  memory: 128Mi

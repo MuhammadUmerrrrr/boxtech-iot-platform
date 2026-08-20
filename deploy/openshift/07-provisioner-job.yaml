@@ -1,0 +1,62 @@
+# One-shot provisioner: creates the tenant, customer, customer user, device
+# profile, device, alarm rules and the vehicle-tracking dashboard, then exits.
+#
+# Equivalent to the boxtech-provisioner service in docker-compose.yml, which
+# also runs once (restart: "no").
+#
+# Safe to re-run: deploy/provision/provision.py is built from ensure_* helpers
+# that check for an existing entity before creating it. Re-running after a pod
+# restart is a no-op, not a duplicate.
+#
+# No initContainer or depends_on is needed - provision.py polls TB_BASE_URL/login
+# for up to 900 seconds itself (see wait_for_platform), which comfortably covers
+# a cold schema install.
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: boxtech-provisioner
+  labels:
+    app: boxtech-provisioner
+    app.kubernetes.io/part-of: boxtech-iot-platform
+spec:
+  backoffLimit: 6
+  # Keep the finished pod around so its log (which prints the demo credentials
+  # and the device id) can still be read after it completes.
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app: boxtech-provisioner
+        app.kubernetes.io/part-of: boxtech-iot-platform
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: provisioner
+          image: ghcr.io/GHCR_OWNER/boxtech-provisioner:4.4.0
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: boxtech-demo-config
+          env:
+            - name: TB_SYSADMIN_EMAIL
+              valueFrom:
+                secretKeyRef: { name: boxtech-secrets, key: TB_SYSADMIN_EMAIL }
+            - name: TB_SYSADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: boxtech-secrets, key: TB_SYSADMIN_PASSWORD }
+            - name: BOXTECH_TENANT_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: boxtech-secrets, key: BOXTECH_TENANT_PASSWORD }
+            - name: BOXTECH_CUSTOMER_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: boxtech-secrets, key: BOXTECH_CUSTOMER_PASSWORD }
+            - name: HOME
+              value: /tmp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi

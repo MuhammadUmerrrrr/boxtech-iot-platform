@@ -1,0 +1,46 @@
+# GPS telemetry simulator.
+#
+# Posts latitude/longitude/speed/fuel to
+#   $TB_BASE_URL/api/v1/$BOXTECH_DEVICE_TOKEN/telemetry
+# every BOXTECH_SIM_INTERVAL seconds over plain HTTP, cluster-internal only
+# (see deploy/simulator/simulator.py:97). This is why raw MQTT exposure is not
+# required for the recruiter demo.
+#
+# It talks to the boxtech-platform Service directly, NOT the public Route, so
+# the telemetry path never leaves the cluster and does not depend on TLS.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: boxtech-simulator
+  labels:
+    app: boxtech-simulator
+    app.kubernetes.io/part-of: boxtech-iot-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: boxtech-simulator
+  template:
+    metadata:
+      labels:
+        app: boxtech-simulator
+        app.kubernetes.io/part-of: boxtech-iot-platform
+    spec:
+      containers:
+        - name: simulator
+          image: ghcr.io/GHCR_OWNER/boxtech-simulator:4.4.0
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: boxtech-demo-config
+          env:
+            - name: HOME
+              value: /tmp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 256Mi

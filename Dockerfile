@@ -67,6 +67,14 @@ RUN chmod +x /usr/local/bin/boxtech-entrypoint.sh \
     && chown -R boxtech:boxtech \
         ${BOXTECH_HOME} \
         ${BOXTECH_DATA} \
+        /var/log/boxtech \
+    && chgrp -R 0 \
+        ${BOXTECH_HOME} \
+        ${BOXTECH_DATA} \
+        /var/log/boxtech \
+    && chmod -R g=u \
+        ${BOXTECH_HOME} \
+        ${BOXTECH_DATA} \
         /var/log/boxtech
 
 USER boxtech

@@ -1,0 +1,141 @@
+# Builds the three BoxTech images on GitHub-hosted runners and publishes them to
+# the GitHub Container Registry.
+#
+# WHY THIS EXISTS: the platform image compiles ThingsBoard from source (Maven +
+# the Angular UI), which needs roughly 8 GB of RAM. That cannot run on the
+# OpenShift Developer Sandbox, so the build happens here on a 4-vCPU / 16 GB
+# runner and OpenShift only ever pulls the finished image.
+#
+# AUTHENTICATION: pushes use the automatic GITHUB_TOKEN. No personal access
+# token, no repository secret to create. The `packages: write` permission below
+# is what makes that token valid for ghcr.io.
+
+name: Build and push BoxTech images to GHCR
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - "deploy/openshift/**"
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_VERSION: "4.4.0"
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # The heavy one. Expect 25-45 minutes on a cold cache.
+  # ---------------------------------------------------------------------------
+  platform:
+    name: boxtech-iot-platform
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      # The Maven reactor plus node_modules plus target/ can approach the
+      # runner's ~14 GB of free space. Reclaiming the preinstalled toolchains
+      # frees ~25 GB and removes the most common cause of a late-stage failure.
+      - name: Free up runner disk space
+        run: |
+          echo "Before:"; df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo docker image prune --all --force || true
+          echo "After:"; df -h /
+
+      # GHCR rejects uppercase path segments, but GitHub usernames may contain
+      # them. Normalise once and reuse.
+      - name: Compute lowercase image name
+        id: img
+        run: echo "name=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          # OpenShift Sandbox nodes are x86_64. Building arm64 as well would
+          # roughly double an already long build for no benefit.
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          tags: |
+            ${{ env.REGISTRY }}/${{ steps.img.outputs.name }}/boxtech-iot-platform:${{ env.IMAGE_VERSION }}
+            ${{ env.REGISTRY }}/${{ steps.img.outputs.name }}/boxtech-iot-platform:latest
+            ${{ env.REGISTRY }}/${{ steps.img.outputs.name }}/boxtech-iot-platform:sha-${{ github.sha }}
+          # Caches finished layers between runs. Note this does NOT preserve the
+          # Dockerfile's `RUN --mount=type=cache` Maven and Yarn caches, so a
+          # run that invalidates the build layer still re-downloads dependencies.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ---------------------------------------------------------------------------
+  # Two small python:3.12-slim images. Well under a minute each.
+  # ---------------------------------------------------------------------------
+  helpers:
+    name: ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: boxtech-provisioner
+            context: ./deploy/provision
+          - image: boxtech-simulator
+            context: ./deploy/simulator
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Compute lowercase image name
+        id: img
+        run: echo "name=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          tags: |
+            ${{ env.REGISTRY }}/${{ steps.img.outputs.name }}/${{ matrix.image }}:${{ env.IMAGE_VERSION }}
+            ${{ env.REGISTRY }}/${{ steps.img.outputs.name }}/${{ matrix.image }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

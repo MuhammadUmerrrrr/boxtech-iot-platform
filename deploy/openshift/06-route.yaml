@@ -1,0 +1,39 @@
+# The single public front door.
+#
+# One Route -> one Service -> one container port. The Angular UI, the REST API
+# under /api/** and the telemetry WebSocket under /api/ws/** are all served by
+# the same Spring Boot listener on 8080, so they stay same-origin behind this
+# Route. No path splitting, no second hostname, no CORS configuration.
+#
+# WEBSOCKET NOTE: the OpenShift HAProxy router upgrades WebSocket connections
+# transparently - there is nothing to enable. What DOES need attention is the
+# idle timeout: the router default (30s) would drop a quiet telemetry socket.
+# The timeout annotation below raises it to 4 hours.
+#
+# TLS is terminated here at the edge. The JVM keeps SSL_ENABLED=false and only
+# ever speaks plain HTTP inside the cluster.
+
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: boxtech
+  labels:
+    app: boxtech-platform
+    app.kubernetes.io/part-of: boxtech-iot-platform
+  annotations:
+    haproxy.router.openshift.io/timeout: 4h
+spec:
+  # host is intentionally omitted - OpenShift generates
+  #   boxtech-muhammadumer-dev.<cluster-apps-domain>
+  # and issues a trusted wildcard certificate for it automatically.
+  to:
+    kind: Service
+    name: boxtech-platform
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    # Send anyone arriving on http:// to https://.
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None

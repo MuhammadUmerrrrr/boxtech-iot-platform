@@ -1,0 +1,106 @@
+# PostgreSQL for the BoxTech IoT Platform.
+#
+# IMAGE CHOICE - this is deliberately NOT postgres:16-alpine.
+#
+# The OpenShift Sandbox runs pods under the restricted-v2 SCC, which assigns an
+# arbitrary UID from the namespace range and ignores the image's USER. The
+# Docker Hub postgres image fails under those conditions: initdb needs to write
+# its socket directory /var/run/postgresql, which is owned by the postgres user
+# and is not group-writable, so a random UID cannot start the server.
+#
+# quay.io/sclorg/postgresql-16-c9s is Red Hat's SCL build, purpose-built to run
+# as an arbitrary UID on OpenShift. It is a public image, no pull secret needed.
+# If that tag is unavailable in your cluster, postgresql-15-c9s works too -
+# ThingsBoard 4.4 supports PostgreSQL 12 through 17.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: boxtech-postgres
+  labels:
+    app: boxtech-postgres
+    app.kubernetes.io/part-of: boxtech-iot-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: boxtech-postgres
+  # Recreate, not RollingUpdate: the PVC is ReadWriteOnce and cannot be
+  # attached to an old and a new pod at the same time.
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: boxtech-postgres
+        app.kubernetes.io/part-of: boxtech-iot-platform
+    spec:
+      containers:
+        - name: postgres
+          image: quay.io/sclorg/postgresql-16-c9s:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgres
+              containerPort: 5432
+              protocol: TCP
+          env:
+            # The sclorg image uses POSTGRESQL_* names, not POSTGRES_*.
+            - name: POSTGRESQL_DATABASE
+              valueFrom:
+                secretKeyRef: { name: boxtech-secrets, key: POSTGRES_DB }
+            - name: POSTGRESQL_USER
+              valueFrom:
+                secretKeyRef: { name: boxtech-secrets, key: POSTGRES_USER }
+            - name: POSTGRESQL_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: boxtech-secrets, key: POSTGRES_PASSWORD }
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/pgsql/data
+          readinessProbe:
+            exec:
+              command:
+                - /usr/bin/pg_isready
+                - -U
+                - $(POSTGRESQL_USER)
+                - -d
+                - $(POSTGRESQL_DATABASE)
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            tcpSocket:
+              port: 5432
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: boxtech-postgres-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: boxtech-postgres
+  labels:
+    app: boxtech-postgres
+    app.kubernetes.io/part-of: boxtech-iot-platform
+spec:
+  type: ClusterIP
+  selector:
+    app: boxtech-postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+      protocol: TCP

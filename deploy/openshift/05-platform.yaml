@@ -1,0 +1,123 @@
+# BoxTech IoT Platform (ThingsBoard CE monolith).
+#
+# Runs the PREBUILT image from GHCR. ThingsBoard is never compiled on OpenShift.
+# Replace GHCR_OWNER before applying - see README.md step 3.
+#
+# No securityContext.runAsUser is set anywhere in this file. That is deliberate:
+# the restricted-v2 SCC assigns an arbitrary UID from the namespace range and
+# adds the pod to GID 0. Pinning a UID here would be rejected by the SCC.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: boxtech-platform
+  labels:
+    app: boxtech-platform
+    app.kubernetes.io/part-of: boxtech-iot-platform
+    app.kubernetes.io/component: platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: boxtech-platform
+  # ReadWriteOnce PVC - the old pod must release it before the new one starts.
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: boxtech-platform
+        app.kubernetes.io/part-of: boxtech-iot-platform
+    spec:
+      # The JVM needs time to flush and close cleanly on rollout/idle shutdown.
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: platform
+          image: ghcr.io/GHCR_OWNER/boxtech-iot-platform:4.4.0
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: boxtech-platform-config
+          env:
+            # Declared before SPRING_DATASOURCE_URL so $(POSTGRES_DB) resolves.
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef: { name: boxtech-secrets, key: POSTGRES_DB }
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://boxtech-postgres:5432/$(POSTGRES_DB)
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef: { name: boxtech-secrets, key: POSTGRES_USER }
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: boxtech-secrets, key: POSTGRES_PASSWORD }
+            # Under an arbitrary UID there is no /etc/passwd entry, so HOME
+            # would default to "/" which is not writable. Point it at /tmp.
+            - name: HOME
+              value: /tmp
+          volumeMounts:
+            # Holds the .installed marker written by deploy/platform/entrypoint.sh.
+            # MUST be persistent, or every restart re-runs the schema installer
+            # against an already-populated database.
+            - name: platform-data
+              mountPath: /data
+          # ThingsBoard needs 2-4 minutes for schema install + first boot. The
+          # startupProbe absorbs that window (up to 10 min) and only then hands
+          # over to the liveness probe, so a slow start is never a crash loop.
+          startupProbe:
+            httpGet:
+              path: /login
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /login
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /login
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: 300m
+              memory: 1Gi
+            limits:
+              # Xmx1536m heap + metaspace + Netty direct buffers + thread stacks.
+              cpu: "1500m"
+              memory: 3Gi
+      volumes:
+        - name: platform-data
+          persistentVolumeClaim:
+            claimName: boxtech-platform-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: boxtech-platform
+  labels:
+    app: boxtech-platform
+    app.kubernetes.io/part-of: boxtech-iot-platform
+spec:
+  type: ClusterIP
+  selector:
+    app: boxtech-platform
+  ports:
+    # Single port: Angular UI, REST API and the telemetry WebSocket are all
+    # served by this one Spring Boot listener. That is what keeps the public
+    # Route same-origin.
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP

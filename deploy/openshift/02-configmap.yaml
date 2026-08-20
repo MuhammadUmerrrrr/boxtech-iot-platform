@@ -1,0 +1,69 @@
+# BoxTech IoT Platform - non-secret configuration.
+#
+# Values mirror the repository docker-compose.yml so the OpenShift deployment
+# produces the identical demo: same tenant, customer, device, dashboard and
+# alarm thresholds. Nothing here changes application behaviour or the UI.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: boxtech-platform-config
+  labels:
+    app.kubernetes.io/part-of: boxtech-iot-platform
+data:
+  # --- Monolith topology (unchanged from docker-compose.yml) ---------------
+  TB_SERVICE_TYPE: monolith
+  TB_QUEUE_TYPE: in-memory
+  DATABASE_TS_TYPE: sql
+  # Demo entities come from the provisioner Job, not ThingsBoard demo data.
+  LOAD_DEMO: "false"
+
+  # JVM sizing. Matches docker-compose.yml; stays inside the 3Gi container
+  # limit set in 05-platform.yaml with room for metaspace and direct buffers.
+  JAVA_OPTS: "-Xms512m -Xmx1536m"
+
+  # --- HTTP listener -------------------------------------------------------
+  # Bind on all interfaces so the kubelet probes and the Service endpoint can
+  # reach the container. This is the default, set explicitly for clarity.
+  HTTP_BIND_ADDRESS: "0.0.0.0"
+  HTTP_BIND_PORT: "8080"
+  # Required so Spring honours the X-Forwarded-* headers set by the OpenShift
+  # router. Without it ThingsBoard would build absolute URLs as http://<pod>.
+  HTTP_FORWARD_HEADERS_STRATEGY: "framework"
+
+  # TLS is terminated at the OpenShift Route (edge), never inside the JVM.
+  SSL_ENABLED: "false"
+
+  # --- "Check connectivity" hints shown in the ThingsBoard UI ---------------
+  # Host is left empty on purpose: ThingsBoard then derives it from the request
+  # base URL, which behind the Route is the public HTTPS hostname. That makes
+  # the hints self-configuring - no Route hostname needs to be hardcoded.
+  DEVICE_CONNECTIVITY_HTTPS_ENABLED: "true"
+  DEVICE_CONNECTIVITY_HTTPS_HOST: ""
+  DEVICE_CONNECTIVITY_HTTPS_PORT: "443"
+  # Plain HTTP, MQTT and CoAP are not exposed publicly through the Route, so we
+  # do not advertise them as reachable endpoints.
+  DEVICE_CONNECTIVITY_HTTP_ENABLED: "false"
+  DEVICE_CONNECTIVITY_MQTT_ENABLED: "false"
+  DEVICE_CONNECTIVITY_COAP_ENABLED: "false"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: boxtech-demo-config
+  labels:
+    app.kubernetes.io/part-of: boxtech-iot-platform
+data:
+  # Consumed by both the provisioner Job and the simulator Deployment.
+  # Cluster-internal Service DNS - never the public Route.
+  TB_BASE_URL: "http://boxtech-platform:8080"
+
+  BOXTECH_TENANT_TITLE: "BoxTech Logistics"
+  BOXTECH_TENANT_EMAIL: "tenant@boxtech.io"
+  BOXTECH_CUSTOMER_TITLE: "Demo Logistics Company"
+  BOXTECH_CUSTOMER_EMAIL: "demo.user@demologistics.com"
+  BOXTECH_DEVICE_NAME: "Demo Vehicle GPS Tracker"
+  BOXTECH_DEVICE_TOKEN: "DEMO_VEHICLE_TRACKER_TOKEN"
+  BOXTECH_SPEED_LIMIT: "80"
+  BOXTECH_FUEL_LIMIT: "20"
+  BOXTECH_SIM_INTERVAL: "2"

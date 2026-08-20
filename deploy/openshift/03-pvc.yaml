@@ -1,0 +1,46 @@
+# Persistent storage.
+#
+# ---------------------------------------------------------------------------
+# CRITICAL COUPLING - read before deleting anything.
+#
+# deploy/platform/entrypoint.sh writes a marker file to ${BOXTECH_DATA}/.installed
+# and uses its presence to decide whether to run the one-time schema installer.
+# That marker lives on boxtech-platform-data; the schema itself lives on
+# boxtech-postgres-data. The two PVCs are therefore ONE logical unit:
+#
+#   delete platform-data, keep postgres-data -> installer re-runs against a
+#                                               populated schema and fails
+#   delete postgres-data, keep platform-data -> server starts against an empty
+#                                               schema and crashes
+#
+# Always delete both together, or neither. See README.md "Resetting the demo".
+# ---------------------------------------------------------------------------
+#
+# storageClassName is intentionally omitted so the Sandbox default StorageClass
+# is used. Check what you were given with:  oc get storageclass
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: boxtech-postgres-data
+  labels:
+    app.kubernetes.io/part-of: boxtech-iot-platform
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: boxtech-platform-data
+  labels:
+    app.kubernetes.io/part-of: boxtech-iot-platform
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

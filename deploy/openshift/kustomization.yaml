@@ -1,0 +1,35 @@
+# Kustomize entry point.
+#
+#   oc apply -k deploy/openshift/ -n muhammadumer-dev
+#
+# Set your GHCR owner ONCE in the `images:` block below instead of editing every
+# manifest. Owner must be lowercase - GHCR rejects uppercase path segments.
+#
+# 09-keepalive-cronjob.yaml is deliberately NOT listed here: it needs RBAC the
+# Sandbox may refuse, and a rejection there should not fail the whole apply.
+# Apply it separately if you want it.
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - 01-secret.yaml
+  - 02-configmap.yaml
+  - 03-pvc.yaml
+  - 04-postgres.yaml
+  - 05-platform.yaml
+  - 06-route.yaml
+  - 07-provisioner-job.yaml
+  - 08-simulator.yaml
+
+images:
+  # ---- EDIT THESE THREE LINES: replace GHCR_OWNER with your GitHub username --
+  - name: ghcr.io/GHCR_OWNER/boxtech-iot-platform
+    newName: ghcr.io/GHCR_OWNER/boxtech-iot-platform
+    newTag: "4.4.0"
+  - name: ghcr.io/GHCR_OWNER/boxtech-provisioner
+    newName: ghcr.io/GHCR_OWNER/boxtech-provisioner
+    newTag: "4.4.0"
+  - name: ghcr.io/GHCR_OWNER/boxtech-simulator
+    newName: ghcr.io/GHCR_OWNER/boxtech-simulator
+    newTag: "4.4.0"

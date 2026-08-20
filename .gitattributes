@@ -1,0 +1,31 @@
+# Normalise line endings to LF in the repository.
+#
+# This matters for the container build, not just tidiness:
+# deploy/platform/entrypoint.sh is COPYied into the runtime image and executed
+# via its shebang. If it were ever committed with CRLF, the container would die
+# at startup with "exec format error" / "\r: command not found". Forcing LF here
+# makes that impossible regardless of which OS commits.
+
+* text=auto eol=lf
+
+*.sh        text eol=lf
+*.py        text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+Dockerfile  text eol=lf
+
+# Binary assets - never transform.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.svg   text eol=lf
+*.jar   binary
+*.gz    binary
+*.zip   binary
+*.pdf   binary
+*.docx  binary
+*.ttf   binary
+*.woff  binary
+*.woff2 binary
