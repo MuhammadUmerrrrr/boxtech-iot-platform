@@ -1,0 +1,105 @@
+<!--
+
+    Copyright © 2016-2026 The Thingsboard Authors
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<form [formGroup]="filtersFormGroup" (ngSubmit)="save()" style="width: 700px;">
+  <mat-toolbar class="tb-dialog-header">
+    <h2>{{ title | translate }}</h2>
+    <span class="flex-1"></span>
+    <button mat-icon-button
+            (click)="cancel()"
+            type="button">
+      <mat-icon class="material-icons">close</mat-icon>
+    </button>
+  </mat-toolbar>
+  <div mat-dialog-content>
+    <div class="tb-form-panel no-border no-padding">
+      <div class="tb-form-panel stroked no-padding no-gap" [class.!hidden]="!filtersFormArray().length">
+        <table mat-table [dataSource]="filtersFormArray().controls" class="overflow-hidden bg-transparent">
+          <ng-container matColumnDef="filter">
+            <mat-header-cell *matHeaderCellDef translate>filter.filter</mat-header-cell>
+            <mat-cell *matCellDef="let control">
+              <span class="text-sm">{{ control.get('filter').value }}</span>
+            </mat-cell>
+          </ng-container>
+          <ng-container matColumnDef="editable">
+            <mat-header-cell *matHeaderCellDef translate>filter.editable</mat-header-cell>
+            <mat-cell *matCellDef="let control">
+              <mat-slide-toggle [formControl]="control.get('editable')"></mat-slide-toggle>
+            </mat-cell>
+          </ng-container>
+          <ng-container matColumnDef="actions" stickyEnd>
+            <mat-header-cell *matHeaderCellDef/>
+            <mat-cell *matCellDef="let control; let i = index">
+              <div class="tb-form-table-row-cell-buttons flex-end">
+                <button mat-icon-button color="primary" type="button"
+                        [disabled]="isLoading$ | async"
+                        (click)="editFilter(i)"
+                        matTooltip="{{ 'filter.edit' | translate }}"
+                        matTooltipPosition="above">
+                  <mat-icon>edit</mat-icon>
+                </button>
+                <button mat-icon-button color="primary" type="button"
+                        [disabled]="isLoading$ | async"
+                        (click)="duplicateFilter(i)"
+                        matTooltip="{{ 'filter.duplicate-filter-action' | translate }}"
+                        matTooltipPosition="above">
+                  <mat-icon>content_copy</mat-icon>
+                </button>
+                <button mat-icon-button color="primary" type="button"
+                        [disabled]="isLoading$ | async"
+                        (click)="removeFilter(i)"
+                        matTooltip="{{ 'filter.remove-filter' | translate }}"
+                        matTooltipPosition="above">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+            </mat-cell>
+          </ng-container>
+          <mat-header-row *matHeaderRowDef="displayedColumns"></mat-header-row>
+          <mat-row *matRowDef="let row; columns: displayedColumns"></mat-row>
+        </table>
+      </div>
+      <div [class.!hidden]="!!filtersFormArray().length" class="tb-prompt flex items-center justify-center" translate>
+        filter.no-filters
+      </div>
+    </div>
+  </div>
+  <div mat-dialog-actions>
+    <button mat-stroked-button color="primary"
+            type="button"
+            (click)="addFilter()"
+            [class.!hidden]="disableAdd"
+            [disabled]="isLoading$ | async"
+            matTooltip="{{ 'filter.add' | translate }}"
+            matTooltipPosition="above">
+      {{ 'filter.add' | translate }}
+    </button>
+    <span class="flex-1"></span>
+    <button mat-button color="primary"
+            type="button"
+            [disabled]="(isLoading$ | async)"
+            (click)="cancel()"
+            cdkFocusInitial>
+      {{ 'action.cancel' | translate }}
+    </button>
+    <button mat-raised-button color="primary"
+            type="submit"
+            [disabled]="(isLoading$ | async) || filtersFormGroup.invalid || !filtersFormGroup.dirty">
+      {{ 'action.save' | translate }}
+    </button>
+  </div>
+</form>

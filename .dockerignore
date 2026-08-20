@@ -1,0 +1,22 @@
+# Build outputs and dependencies are regenerated inside the builder stage.
+**/target/
+**/node_modules/
+**/.gradle/
+**/build/
+
+# VCS and IDE noise
+.git/
+.github/
+.idea/
+*.iml
+.vscode/
+
+# Docs and deliverables, not build inputs
+docs/
+*.pdf
+*.docx
+
+# Local runtime state
+docker/tb-node/log/
+docker/**/log/
+*.log

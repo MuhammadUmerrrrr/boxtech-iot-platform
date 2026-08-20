@@ -1,0 +1,1121 @@
+///
+/// Copyright © 2016-2026 The Thingsboard Authors
+///
+/// Licensed under the Apache License, Version 2.0 (the "License");
+/// you may not use this file except in compliance with the License.
+/// You may obtain a copy of the License at
+///
+///     http://www.apache.org/licenses/LICENSE-2.0
+///
+/// Unless required by applicable law or agreed to in writing, software
+/// distributed under the License is distributed on an "AS IS" BASIS,
+/// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/// See the License for the specific language governing permissions and
+/// limitations under the License.
+///
+
+import { AuthState } from '@core/auth/auth.models';
+import { Authority } from '@shared/models/authority.enum';
+import { deepClone } from '@core/utils';
+
+export declare type MenuSectionType = 'link' | 'toggle' | 'divider';
+
+export interface MenuSection {
+  id: MenuId | string;
+  name: string;
+  fullName?: string;
+  type: MenuSectionType;
+  path: string;
+  icon: string;
+  pages?: Array<MenuSection>;
+  opened?: boolean;
+  rootOnly?: boolean;
+  isNew?: boolean;
+  customTranslate?: boolean;
+  active?: boolean;
+}
+
+export interface MenuReference {
+  id: MenuId;
+  pages?: Array<MenuReference>;
+}
+
+export interface HomeSection {
+  name: string;
+  places: Array<MenuSection>;
+}
+
+export enum MenuId {
+  home = 'home',
+  tenants = 'tenants',
+  tenants_section = 'tenants_section',
+  tenant_profiles = 'tenant_profiles',
+  resources = 'resources',
+  widget_library = 'widget_library',
+  widget_types = 'widget_types',
+  widgets_bundles = 'widgets_bundles',
+  images = 'images',
+  scada_symbols = 'scada_symbols',
+  resources_library = 'resources_library',
+  javascript_library = 'javascript_library',
+  notifications_center = 'notifications_center',
+  notification_inbox = 'notification_inbox',
+  notification_sent = 'notification_sent',
+  notification_recipients = 'notification_recipients',
+  notification_templates = 'notification_templates',
+  notification_rules = 'notification_rules',
+  mobile_center = 'mobile_center',
+  mobile_apps = 'mobile_apps',
+  mobile_bundles = 'mobile_bundles',
+  mobile_qr_code_widget = 'mobile_qr_code_widget',
+  platform = 'platform',
+  platform_section = 'platform_section',
+  settings = 'settings',
+  general = 'general',
+  mail_server = 'mail_server',
+  home_settings = 'home_settings',
+  notification_settings = 'notification_settings',
+  repository_settings = 'repository_settings',
+  auto_commit_settings = 'auto_commit_settings',
+  queues = 'queues',
+  security_settings = 'security_settings',
+  security_settings_general = 'security_settings_general',
+  two_fa = 'two_fa',
+  oauth2 = 'oauth2',
+  domains = 'domains',
+  clients = 'clients',
+  audit_log = 'audit_log',
+  monitor = 'monitor',
+  alarms_center = 'alarms_center',
+  alarms = 'alarms',
+  alarm_rules = 'alarm_rules',
+  dashboards = 'dashboards',
+  entities = 'entities',
+  devices = 'devices',
+  assets = 'assets',
+  entity_views = 'entity_views',
+  gateways = 'gateways',
+  profiles = 'profiles',
+  device_profiles = 'device_profiles',
+  asset_profiles = 'asset_profiles',
+  customers_and_users = 'customers_and_users',
+  customers = 'customers',
+  data_processing = 'data_processing',
+  calculated_fields = 'calculated_fields',
+  rule_chains = 'rule_chains',
+  edge_management = 'edge_management',
+  edges = 'edges',
+  edge_instances = 'edge_instances',
+  rulechain_templates = 'rulechain_templates',
+  features = 'features',
+  otaUpdates = 'otaUpdates',
+  version_control = 'version_control',
+  api_usage = 'api_usage',
+  trendz_settings = 'trendz_settings',
+  ai_models = 'ai_models',
+  iot_hub = 'iot_hub',
+  divider = 'divider'
+}
+
+declare type MenuFilter = (authState: AuthState) => boolean;
+
+export const menuSectionMap = new Map<MenuId, MenuSection>([
+  [
+    MenuId.home,
+    {
+      id: MenuId.home,
+      name: 'home.home',
+      type: 'link',
+      path: '/home',
+      icon: 'mdi:home-outline'
+    }
+  ],
+  [
+    MenuId.tenants_section,
+    {
+      id: MenuId.tenants_section,
+      name: 'tenant.tenants',
+      type: 'toggle',
+      path: '/tenants',
+      icon: 'mdi:account-supervisor-outline'
+    }
+  ],
+  [
+    MenuId.tenants,
+    {
+      id: MenuId.tenants,
+      name: 'tenant.tenants',
+      type: 'link',
+      path: '/tenants',
+      icon: 'mdi:account-supervisor-outline'
+    }
+  ],
+  [
+    MenuId.tenant_profiles,
+    {
+      id: MenuId.tenant_profiles,
+      name: 'tenant-profile.tenant-profiles',
+      type: 'link',
+      path: '/tenantProfiles',
+      icon: 'mdi:alpha-t-box-outline'
+    }
+  ],
+  [
+    MenuId.resources,
+    {
+      id: MenuId.resources,
+      name: 'admin.resources',
+      type: 'toggle',
+      path: '/resources',
+      icon: 'mdi:folder-outline'
+    }
+  ],
+  [
+    MenuId.widget_library,
+    {
+      id: MenuId.widget_library,
+      name: 'widget.widgets',
+      type: 'link',
+      path: '/resources/widgets-library',
+      icon: 'mdi:widgets-outline'
+    }
+  ],
+  [
+    MenuId.widget_types,
+    {
+      id: MenuId.widget_types,
+      name: 'widget.widgets',
+      type: 'link',
+      path: '/resources/widgets-library/widget-types',
+      icon: 'mdi:widgets-outline'
+    }
+  ],
+  [
+    MenuId.widgets_bundles,
+    {
+      id: MenuId.widgets_bundles,
+      name: 'widgets-bundle.widgets-bundles',
+      type: 'link',
+      path: '/resources/widgets-library/widgets-bundles',
+      icon: 'mdi:widgets-outline'
+    }
+  ],
+  [
+    MenuId.images,
+    {
+      id: MenuId.images,
+      name: 'image.images',
+      type: 'link',
+      path: '/resources/images',
+      icon: 'filter'
+    }
+  ],
+  [
+    MenuId.scada_symbols,
+    {
+      id: MenuId.scada_symbols,
+      name: 'scada.symbols',
+      type: 'link',
+      path: '/resources/scada-symbols',
+      icon: 'view_in_ar'
+    }
+  ],
+  [
+    MenuId.resources_library,
+    {
+      id: MenuId.resources_library,
+      name: 'resource.files',
+      type: 'link',
+      path: '/resources/resources-library',
+      icon: 'mdi:rhombus-split-outline'
+    }
+  ],
+  [
+    MenuId.javascript_library,
+    {
+      id: MenuId.javascript_library,
+      name: 'javascript.scripts',
+      type: 'link',
+      path: '/resources/javascript-library',
+      icon: 'mdi:language-javascript'
+    }
+  ],
+  [
+    MenuId.notifications_center,
+    {
+      id: MenuId.notifications_center,
+      name: 'notification.notifications',
+      type: 'link',
+      path: '/notification',
+      icon: 'mdi:message-badge-outline'
+    }
+  ],
+  [
+    MenuId.notification_inbox,
+    {
+      id: MenuId.notification_inbox,
+      name: 'notification.inbox',
+      fullName: 'notification.notification-inbox',
+      type: 'link',
+      path: '/notification/inbox',
+      icon: 'inbox'
+    }
+  ],
+  [
+    MenuId.notification_sent,
+    {
+      id: MenuId.notification_sent,
+      name: 'notification.sent',
+      fullName: 'notification.notification-sent',
+      type: 'link',
+      path: '/notification/sent',
+      icon: 'outbox'
+    }
+  ],
+  [
+    MenuId.notification_recipients,
+    {
+      id: MenuId.notification_recipients,
+      name: 'notification.recipients',
+      fullName: 'notification.notification-recipients',
+      type: 'link',
+      path: '/notification/recipients',
+      icon: 'mdi:contacts-outline'
+    }
+  ],
+  [
+    MenuId.notification_templates,
+    {
+      id: MenuId.notification_templates,
+      name: 'notification.templates',
+      fullName: 'notification.notification-templates',
+      type: 'link',
+      path: '/notification/templates',
+      icon: 'mdi:message-draw'
+    }
+  ],
+  [
+    MenuId.notification_rules,
+    {
+      id: MenuId.notification_rules,
+      name: 'notification.rules',
+      fullName: 'notification.notification-rules',
+      type: 'link',
+      path: '/notification/rules',
+      icon: 'mdi:message-cog-outline'
+    }
+  ],
+  [
+    MenuId.ai_models,
+    {
+      id: MenuId.ai_models,
+      name: 'ai-models.ai-models',
+      type: 'link',
+      path: '/settings/ai-models',
+      icon: 'auto_awesome'
+    }
+  ],
+  [
+    MenuId.mobile_center,
+    {
+      id: MenuId.mobile_center,
+      name: 'mobile.mobile-apps',
+      type: 'link',
+      path: '/mobile-center',
+      icon: 'smartphone'
+    }
+  ],
+  [
+    MenuId.mobile_apps,
+    {
+      id: MenuId.mobile_apps,
+      name: 'mobile.applications',
+      type: 'link',
+      path: '/mobile-center/applications',
+      icon: 'list'
+    }
+  ],
+  [
+    MenuId.mobile_bundles,
+    {
+      id: MenuId.mobile_bundles,
+      name: 'mobile.bundles',
+      type: 'link',
+      path: '/mobile-center/bundles',
+      icon: 'mdi:package'
+    }
+  ],
+  [
+    MenuId.mobile_qr_code_widget,
+    {
+      id: MenuId.mobile_qr_code_widget,
+      name: 'mobile.qr-code-widget',
+      fullName: 'mobile.qr-code-widget',
+      type: 'link',
+      path: '/mobile-center/qr-code-widget',
+      icon: 'qr_code'
+    }
+  ],
+  [
+    MenuId.platform,
+    {
+      id: MenuId.platform,
+      name: 'admin.platform',
+      type: 'link',
+      path: '/settings',
+      icon: 'miscellaneous_services'
+    }
+  ],
+  [
+    MenuId.platform_section,
+    {
+      id: MenuId.platform_section,
+      name: 'admin.platform',
+      type: 'toggle',
+      path: '/platform',
+      icon: 'miscellaneous_services'
+    }
+  ],
+  [
+    MenuId.settings,
+    {
+      id: MenuId.settings,
+      name: 'admin.settings',
+      type: 'link',
+      path: '/settings',
+      icon: 'mdi:cog-outline'
+    }
+  ],
+  [
+    MenuId.general,
+    {
+      id: MenuId.general,
+      name: 'admin.general',
+      fullName: 'admin.general-settings',
+      type: 'link',
+      path: '/settings/general',
+      icon: 'mdi:cog-outline'
+    }
+  ],
+  [
+    MenuId.mail_server,
+    {
+      id: MenuId.mail_server,
+      name: 'admin.outgoing-mail',
+      type: 'link',
+      path: '/settings/outgoing-mail',
+      icon: 'mail_outline'
+    }
+  ],
+  [
+    MenuId.home_settings,
+    {
+      id: MenuId.home_settings,
+      name: 'admin.home',
+      fullName: 'admin.home-settings',
+      type: 'link',
+      path: '/settings/home',
+      icon: 'mdi:cog-outline'
+    }
+  ],
+  [
+    MenuId.notification_settings,
+    {
+      id: MenuId.notification_settings,
+      name: 'admin.notifications',
+      fullName: 'admin.notifications-settings',
+      type: 'link',
+      path: '/settings/notifications',
+      icon: 'mdi:message-badge-outline'
+    }
+  ],
+  [
+    MenuId.repository_settings,
+    {
+      id: MenuId.repository_settings,
+      name: 'admin.repository',
+      fullName: 'admin.repository-settings',
+      type: 'link',
+      path: '/settings/repository',
+      icon: 'manage_history'
+    }
+  ],
+  [
+    MenuId.auto_commit_settings,
+    {
+      id: MenuId.auto_commit_settings,
+      name: 'admin.auto-commit',
+      fullName: 'admin.auto-commit-settings',
+      type: 'link',
+      path: '/settings/auto-commit',
+      icon: 'settings_backup_restore'
+    }
+  ],
+  [
+    MenuId.queues,
+    {
+      id: MenuId.queues,
+      name: 'admin.queues',
+      type: 'link',
+      path: '/settings/queues',
+      icon: 'swap_calls'
+    }
+  ],
+  [
+    MenuId.security_settings,
+    {
+      id: MenuId.security_settings,
+      name: 'security.security',
+      type: 'toggle',
+      path: '/security-settings',
+      icon: 'security'
+    }
+  ],
+  [
+    MenuId.security_settings_general,
+    {
+      id: MenuId.security_settings_general,
+      name: 'admin.general',
+      fullName: 'security.general-settings',
+      type: 'link',
+      path: '/security-settings/general',
+      icon: 'mdi:cog-outline'
+    }
+  ],
+  [
+    MenuId.two_fa,
+    {
+      id: MenuId.two_fa,
+      name: 'admin.2fa.2fa',
+      type: 'link',
+      path: '/security-settings/2fa',
+      icon: 'mdi:two-factor-authentication'
+    }
+  ],
+  [
+    MenuId.oauth2,
+    {
+      id: MenuId.oauth2,
+      name: 'admin.oauth2.oauth2',
+      type: 'link',
+      path: '/security-settings/oauth2',
+      icon: 'mdi:shield-account-outline'
+    }
+  ],
+  [
+    MenuId.domains,
+    {
+      id: MenuId.domains,
+      name: 'admin.oauth2.domains',
+      type: 'link',
+      path: '/security-settings/oauth2/domains',
+      icon: 'domain'
+    }
+  ],
+  [
+    MenuId.clients,
+    {
+      id: MenuId.clients,
+      name: 'admin.oauth2.clients',
+      type: 'link',
+      path: '/security-settings/oauth2/clients',
+      icon: 'public'
+    }
+  ],
+  [
+    MenuId.audit_log,
+    {
+      id: MenuId.audit_log,
+      name: 'audit-log.audit-logs',
+      type: 'link',
+      path: '/security-settings/auditLogs',
+      icon: 'track_changes'
+    }
+  ],
+  [
+    MenuId.monitor,
+    {
+      id: MenuId.monitor,
+      name: 'monitor.monitor',
+      type: 'toggle',
+      path: '/monitor',
+      icon: 'mdi:view-dashboard-outline'
+    }
+  ],
+  [
+    MenuId.alarms_center,
+    {
+      id: MenuId.alarms_center,
+      name: 'alarm.alarms',
+      type: 'link',
+      path: '/alarms',
+      icon: 'mdi:alert-outline'
+    }
+  ],
+  [
+    MenuId.alarms,
+    {
+      id: MenuId.alarms,
+      name: 'alarm.alarm-list',
+      type: 'link',
+      path: '/alarms/alarms',
+      icon: 'mdi:alert-outline'
+    }
+  ],
+  [
+    MenuId.alarm_rules,
+    {
+      id: MenuId.alarm_rules,
+      name: 'alarm-rule.alarm-rules',
+      type: 'link',
+      path: '/alarms/alarm-rules',
+      icon: 'tune'
+    }
+  ],
+  [
+    MenuId.dashboards,
+    {
+      id: MenuId.dashboards,
+      name: 'dashboard.dashboards',
+      type: 'link',
+      path: '/dashboards',
+      icon: 'mdi:view-dashboard-outline'
+    }
+  ],
+  [
+    MenuId.entities,
+    {
+      id: MenuId.entities,
+      name: 'entity.devices-and-assets',
+      type: 'toggle',
+      path: '/entities',
+      icon: 'mdi:shape-outline'
+    }
+  ],
+  [
+    MenuId.devices,
+    {
+      id: MenuId.devices,
+      name: 'device.devices',
+      type: 'link',
+      path: '/entities/devices',
+      icon: 'devices_other'
+    }
+  ],
+  [
+    MenuId.assets,
+    {
+      id: MenuId.assets,
+      name: 'asset.assets',
+      type: 'link',
+      path: '/entities/assets',
+      icon: 'domain'
+    }
+  ],
+  [
+    MenuId.entity_views,
+    {
+      id: MenuId.entity_views,
+      name: 'entity-view.entity-views',
+      type: 'link',
+      path: '/entities/entityViews',
+      icon: 'mdi:view-quilt-outline'
+    }
+  ],
+  [
+    MenuId.gateways,
+    {
+      id: MenuId.gateways,
+      name: 'gateway.gateways',
+      type: 'link',
+      path: '/entities/gateways',
+      icon: 'lan'
+    }
+  ],
+  [
+    MenuId.profiles,
+    {
+      id: MenuId.profiles,
+      name: 'profiles.profiles',
+      type: 'toggle',
+      path: '/profiles',
+      icon: 'badge'
+    }
+  ],
+  [
+    MenuId.device_profiles,
+    {
+      id: MenuId.device_profiles,
+      name: 'device-profile.device-profiles',
+      type: 'link',
+      path: '/profiles/deviceProfiles',
+      icon: 'mdi:alpha-d-box-outline'
+    }
+  ],
+  [
+    MenuId.asset_profiles,
+    {
+      id: MenuId.asset_profiles,
+      name: 'asset-profile.asset-profiles',
+      type: 'link',
+      path: '/profiles/assetProfiles',
+      icon: 'mdi:alpha-a-box-outline'
+    }
+  ],
+  [
+    MenuId.customers_and_users,
+    {
+      id: MenuId.customers_and_users,
+      name: 'customer.customers-and-users',
+      type: 'link',
+      path: '/customers',
+      icon: 'mdi:account-multiple-outline'
+    }
+  ],
+  [
+    MenuId.customers,
+    {
+      id: MenuId.customers,
+      name: 'customer.customers',
+      type: 'link',
+      path: '/customers',
+      icon: 'mdi:account-supervisor-outline'
+    }
+  ],
+  [
+    MenuId.data_processing,
+    {
+      id: MenuId.data_processing,
+      name: 'entity.data-processing',
+      type: 'toggle',
+      path: '/dataProcessing',
+      icon: 'settings_ethernet',
+    }
+  ],
+  [
+    MenuId.calculated_fields,
+    {
+      id: MenuId.calculated_fields,
+      name: 'entity.type-calculated-fields',
+      type: 'link',
+      path: '/calculatedFields',
+      icon: 'mdi:function-variant',
+    }
+  ],
+  [
+    MenuId.rule_chains,
+    {
+      id: MenuId.rule_chains,
+      name: 'rulechain.rulechains',
+      type: 'link',
+      path: '/ruleChains',
+      icon: 'settings_ethernet'
+    }
+  ],
+  [
+    MenuId.edge_management,
+    {
+      id: MenuId.edge_management,
+      name: 'edge.management',
+      type: 'toggle',
+      path: '/edgeManagement',
+      icon: 'settings_input_antenna'
+    }
+  ],
+  [
+    MenuId.edges,
+    {
+      id: MenuId.edges,
+      name: 'edge.instances',
+      fullName: 'edge.edge-instances',
+      type: 'link',
+      path: '/edgeManagement/instances',
+      icon: 'router'
+    }
+  ],
+  [
+    MenuId.edge_instances,
+    {
+      id: MenuId.edge_instances,
+      name: 'edge.edge-instances',
+      fullName: 'edge.edge-instances',
+      type: 'link',
+      path: '/edgeManagement/instances',
+      icon: 'router'
+    }
+  ],
+  [
+    MenuId.rulechain_templates,
+    {
+      id: MenuId.rulechain_templates,
+      name: 'edge.rulechain-templates',
+      fullName: 'edge.edge-rulechain-templates',
+      type: 'link',
+      path: '/edgeManagement/ruleChains',
+      icon: 'settings_ethernet'
+    }
+  ],
+  [
+    MenuId.features,
+    {
+      id: MenuId.features,
+      name: 'feature.advanced-features',
+      type: 'toggle',
+      path: '/features',
+      icon: 'construction'
+    }
+  ],
+  [
+    MenuId.otaUpdates,
+    {
+      id: MenuId.otaUpdates,
+      name: 'ota-update.ota-updates',
+      type: 'link',
+      path: '/features/otaUpdates',
+      icon: 'memory'
+    }
+  ],
+  [
+    MenuId.version_control,
+    {
+      id: MenuId.version_control,
+      name: 'version-control.version-control',
+      type: 'link',
+      path: '/features/vc',
+      icon: 'history'
+    }
+  ],
+  [
+    MenuId.api_usage,
+    {
+      id: MenuId.api_usage,
+      name: 'api-usage.api-usage',
+      type: 'link',
+      path: '/usage',
+      icon: 'insert_chart_outlined'
+    }
+  ],
+  [
+    MenuId.trendz_settings,
+    {
+      id: MenuId.trendz_settings,
+      name: 'admin.trendz',
+      fullName: 'admin.trendz-settings',
+      type: 'link',
+      path: '/settings/trendz',
+      icon: 'trendz-settings'
+    }
+  ],
+  [
+    MenuId.iot_hub,
+    {
+      id: MenuId.iot_hub,
+      name: 'iot-hub.iot-hub',
+      type: 'link',
+      path: '/iot-hub',
+      icon: 'mdi:hub-outline',
+      isNew: true
+    }
+  ],
+  [
+    MenuId.divider,
+    {
+      id: MenuId.divider,
+      name: '',
+      type: 'divider',
+      path: 'divider',
+      icon: ''
+    }
+  ]
+]);
+
+const menuFilters = new Map<MenuId, MenuFilter>([
+  [
+    MenuId.edges, (authState) => authState.edgesSupportEnabled
+  ],
+  [
+    MenuId.edge_management, (authState) => authState.edgesSupportEnabled
+  ],
+  [
+    MenuId.rulechain_templates, (authState) => authState.edgesSupportEnabled
+  ]
+]);
+
+const defaultUserMenuMap = new Map<Authority, MenuReference[]>([
+  [
+    Authority.SYS_ADMIN,
+    [
+      {id: MenuId.home},
+      {
+        id: MenuId.tenants_section,
+        pages: [
+          {id: MenuId.tenants},
+          {id: MenuId.tenant_profiles},
+        ]
+      },
+      {
+        id: MenuId.notifications_center,
+        pages: [
+          {id: MenuId.notification_inbox},
+          {id: MenuId.notification_sent},
+          {id: MenuId.notification_recipients},
+          {id: MenuId.notification_templates},
+          {id: MenuId.notification_rules}
+        ]
+      },
+      {
+        id: MenuId.resources,
+        pages: [
+          {
+            id: MenuId.widget_library,
+            pages: [
+              {id: MenuId.widget_types},
+              {id: MenuId.widgets_bundles}
+            ]
+          },
+          {id: MenuId.images},
+          {id: MenuId.scada_symbols},
+          {id: MenuId.javascript_library},
+          {id: MenuId.resources_library}
+        ]
+      },
+      {
+        id: MenuId.security_settings,
+        pages: [
+          {id: MenuId.security_settings_general},
+          {id: MenuId.two_fa},
+          {
+            id: MenuId.oauth2,
+            pages: [
+              {id: MenuId.domains},
+              {id: MenuId.clients}
+            ]
+          },
+          {id: MenuId.audit_log}
+        ]
+      },
+      {
+        id: MenuId.platform,
+        pages: [
+          {id: MenuId.general},
+          {id: MenuId.mail_server},
+          {id: MenuId.notification_settings},
+          {id: MenuId.queues}
+        ]
+      },
+      {
+        id: MenuId.mobile_center,
+        pages: [
+          {id: MenuId.mobile_bundles},
+          {id: MenuId.mobile_apps},
+          {id: MenuId.mobile_qr_code_widget}
+        ]
+      }
+    ]
+  ],
+  [
+    Authority.TENANT_ADMIN,
+    [
+      {id: MenuId.home},
+      {id: MenuId.iot_hub},
+      {id: MenuId.divider},
+      {
+        id: MenuId.monitor,
+        pages: [
+          {id: MenuId.dashboards},
+          {
+            id: MenuId.alarms_center,
+            pages: [
+              {id: MenuId.alarms},
+              {id: MenuId.alarm_rules}
+            ]
+          },
+          {
+            id: MenuId.notifications_center,
+            pages: [
+              {id: MenuId.notification_inbox},
+              {id: MenuId.notification_sent},
+              {id: MenuId.notification_recipients},
+              {id: MenuId.notification_templates},
+              {id: MenuId.notification_rules}
+            ]
+          }
+        ]
+      },
+      {
+        id: MenuId.entities,
+        pages: [
+          {id: MenuId.devices},
+          {id: MenuId.gateways},
+          {id: MenuId.assets},
+          {id: MenuId.device_profiles},
+          {id: MenuId.asset_profiles},
+          {id: MenuId.entity_views},
+          {id: MenuId.otaUpdates}
+        ]
+      },
+      {id: MenuId.customers_and_users},
+      {
+        id: MenuId.data_processing,
+        pages: [
+          {id: MenuId.calculated_fields},
+          {id: MenuId.rule_chains}
+        ]
+      },
+      {
+        id: MenuId.resources,
+        pages: [
+          {
+            id: MenuId.widget_library,
+            pages: [
+              {id: MenuId.widget_types},
+              {id: MenuId.widgets_bundles}
+            ]
+          },
+          {id: MenuId.images},
+          {id: MenuId.scada_symbols},
+          {id: MenuId.javascript_library},
+          {id: MenuId.resources_library}
+        ]
+      },
+      {
+        id: MenuId.security_settings,
+        pages: [
+          {
+            id: MenuId.oauth2,
+            pages: [
+              {id: MenuId.clients}
+            ]
+          },
+          {id: MenuId.audit_log}
+        ]
+      },
+      {
+        id: MenuId.platform_section,
+        pages: [
+          {id: MenuId.version_control},
+          {
+            id: MenuId.settings,
+            pages: [
+              {id: MenuId.home_settings},
+              {id: MenuId.notification_settings},
+              {id: MenuId.repository_settings},
+              {id: MenuId.auto_commit_settings},
+              {id: MenuId.trendz_settings},
+              {id: MenuId.ai_models}
+            ]
+          },
+          {id: MenuId.api_usage}
+        ]
+      },
+      {
+        id: MenuId.edge_management,
+        pages: [
+          {id: MenuId.edges},
+          {id: MenuId.rulechain_templates}
+        ]
+      },
+      {
+        id: MenuId.mobile_center,
+        pages: [
+          {id: MenuId.mobile_bundles},
+          {id: MenuId.mobile_apps}
+        ]
+      }
+    ]
+  ],
+  [
+    Authority.CUSTOMER_USER,
+    [
+      {id: MenuId.home},
+      {
+        id: MenuId.monitor,
+        pages: [
+          {id: MenuId.dashboards},
+          {
+            id: MenuId.alarms_center,
+            pages: [
+              {id: MenuId.alarms}
+            ]
+          },
+          {
+            id: MenuId.notifications_center,
+            pages: [
+              {id: MenuId.notification_inbox}
+            ]
+          }
+        ]
+      },
+      {
+        id: MenuId.entities,
+        pages: [
+          {id: MenuId.devices},
+          {id: MenuId.assets},
+          {id: MenuId.entity_views}
+        ]
+      },
+      {id: MenuId.edge_instances}
+    ]
+  ]
+]);
+
+export const buildUserMenu = (authState: AuthState): Array<MenuSection> => {
+  const references = defaultUserMenuMap.get(authState.authUser.authority);
+  return (references || []).map(ref => referenceToMenuSection(authState, ref)).filter(section => !!section);
+};
+
+export const buildUserHome = (currentMenuSections: MenuSection[]): Array<HomeSection> => {
+  return (currentMenuSections || []).map(section =>
+    menuSectionToHomeSection(section)).filter(section => !!section);
+};
+
+const referenceToMenuSection = (authState: AuthState, reference: MenuReference): MenuSection | undefined => {
+  if (filterMenuReference(authState, reference)) {
+    const section = menuSectionMap.get(reference.id);
+    if (section) {
+      const result = deepClone(section);
+      if (reference.pages?.length) {
+        result.pages = reference.pages.map(page =>
+          referenceToMenuSection(authState, page)).filter(page => !!page);
+      }
+      return result;
+    } else {
+      return undefined;
+    }
+  } else {
+    return undefined;
+  }
+};
+
+const filterMenuReference = (authState: AuthState, reference: MenuReference): boolean => {
+  const filter = menuFilters.get(reference.id);
+  if (filter) {
+    if (filter(authState)) {
+      if (reference.pages?.length) {
+        if (reference.pages.every(page => !filterMenuReference(authState, page))) {
+          return false;
+        }
+      }
+      return true;
+    }
+    return false;
+  } else {
+    return true;
+  }
+};
+
+const menuSectionToHomeSection = (section: MenuSection): HomeSection => {
+  if (section.id !== MenuId.home) {
+    if (section.type === 'link') {
+      return {
+        name: section.name,
+        places: [ section ]
+      }
+    } else if (section.type === 'toggle' && section.pages?.length) {
+      return {
+        name: section.name,
+        places: section.pages
+      };
+    }
+  }
+}

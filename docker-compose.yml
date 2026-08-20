@@ -1,0 +1,98 @@
+# BoxTech IoT Platform - full evaluation stack.
+#
+#   docker compose up -d --build
+#
+# Brings up Postgres, the branded platform, a one-shot provisioner that creates
+# the customer/user/device/dashboard/alarm rules, and a telemetry simulator.
+# Open http://localhost:8080 once boxtech-provisioner has exited successfully.
+
+name: boxtech
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: boxtech-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: boxtech
+      POSTGRES_USER: boxtech
+      POSTGRES_PASSWORD: boxtech
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U boxtech -d boxtech"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  boxtech-platform:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: boxtech/iot-platform:4.4.0
+    container_name: boxtech-platform
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/boxtech
+      SPRING_DATASOURCE_USERNAME: boxtech
+      SPRING_DATASOURCE_PASSWORD: boxtech
+      # Monolith defaults: in-memory queue, caffeine cache, SQL time series.
+      TB_SERVICE_TYPE: monolith
+      TB_QUEUE_TYPE: in-memory
+      DATABASE_TS_TYPE: sql
+      # The demo entities come from boxtech-provisioner, not ThingsBoard's demo data.
+      LOAD_DEMO: "false"
+      JAVA_OPTS: "-Xms512m -Xmx1536m"
+    ports:
+      - "8080:8080"       # Web UI + REST API
+      - "1883:1883"       # MQTT
+      - "5683:5683/udp"   # CoAP
+    volumes:
+      - platform-data:/data
+      - platform-logs:/var/log/boxtech
+
+  boxtech-provisioner:
+    build:
+      context: ./deploy/provision
+    image: boxtech/provisioner:4.4.0
+    container_name: boxtech-provisioner
+    restart: "no"
+    depends_on:
+      boxtech-platform:
+        condition: service_healthy
+    environment:
+      TB_BASE_URL: http://boxtech-platform:8080
+      BOXTECH_TENANT_TITLE: BoxTech Logistics
+      BOXTECH_TENANT_EMAIL: tenant@boxtech.io
+      BOXTECH_TENANT_PASSWORD: BoxTech@2026
+      BOXTECH_CUSTOMER_TITLE: Demo Logistics Company
+      BOXTECH_CUSTOMER_EMAIL: demo.user@demologistics.com
+      BOXTECH_CUSTOMER_PASSWORD: Password123!
+      BOXTECH_DEVICE_NAME: Demo Vehicle GPS Tracker
+      BOXTECH_DEVICE_TOKEN: DEMO_VEHICLE_TRACKER_TOKEN
+      BOXTECH_SPEED_LIMIT: "80"
+      BOXTECH_FUEL_LIMIT: "20"
+
+  boxtech-simulator:
+    build:
+      context: ./deploy/simulator
+    image: boxtech/simulator:4.4.0
+    container_name: boxtech-simulator
+    restart: unless-stopped
+    depends_on:
+      boxtech-provisioner:
+        condition: service_completed_successfully
+    environment:
+      TB_BASE_URL: http://boxtech-platform:8080
+      BOXTECH_DEVICE_TOKEN: DEMO_VEHICLE_TRACKER_TOKEN
+      BOXTECH_SIM_INTERVAL: "2"
+      BOXTECH_SPEED_LIMIT: "80"
+      BOXTECH_FUEL_LIMIT: "20"
+
+volumes:
+  postgres-data:
+  platform-data:
+  platform-logs:

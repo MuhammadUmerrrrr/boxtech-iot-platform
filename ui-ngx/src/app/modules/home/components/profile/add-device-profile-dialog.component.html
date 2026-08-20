@@ -1,0 +1,164 @@
+<!--
+
+    Copyright © 2016-2026 The Thingsboard Authors
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<mat-toolbar class="tb-dialog-header">
+  <h2 translate>device-profile.add</h2>
+  <span class="flex-1"></span>
+  <div [tb-help]="'deviceProfiles'"></div>
+  <button mat-icon-button
+          (click)="cancel()"
+          type="button">
+    <mat-icon class="material-icons">close</mat-icon>
+  </button>
+</mat-toolbar>
+@if (isLoading$ | async) {
+  <mat-progress-bar color="warn" mode="indeterminate"></mat-progress-bar>
+} @else {
+  <div style="height: 4px;"></div>
+}
+<div mat-dialog-content>
+  <mat-horizontal-stepper [linear]="true"
+                          #addDeviceProfileStepper
+                          [labelPosition]="(stepperLabelPosition | async)"
+                          [orientation]="(stepperOrientation | async)"
+                          (selectionChange)="changeStep($event)">
+    <mat-step [stepControl]="deviceProfileDetailsFormGroup">
+      <form [formGroup]="deviceProfileDetailsFormGroup">
+        <ng-template matStepLabel>{{ 'device-profile.device-profile-details' | translate }}</ng-template>
+        <fieldset [disabled]="isLoading$ | async" class="flex flex-col gap-2">
+          <mat-form-field class="mat-block" appearance="outline">
+            <mat-label translate>device-profile.name</mat-label>
+            <input matInput formControlName="name" required/>
+            @if (deviceProfileDetailsFormGroup.get('name').hasError('required')) {
+              <mat-error>{{ 'device-profile.name-required' | translate }}</mat-error>
+            }
+            @if (deviceProfileDetailsFormGroup.get('name').hasError('maxlength')) {
+              <mat-error>{{ 'device-profile.name-max-length' | translate }}</mat-error>
+            }
+          </mat-form-field>
+          <tb-rule-chain-autocomplete
+            labelText="device-profile.default-rule-chain"
+            appearance="outline"
+            formControlName="defaultRuleChainId">
+          </tb-rule-chain-autocomplete>
+          <tb-dashboard-autocomplete
+            label="{{'device-profile.mobile-dashboard' | translate}}"
+            appearance="outline"
+            formControlName="defaultDashboardId">
+            <span tb-hint>{{'device-profile.mobile-dashboard-hint' | translate}}</span>
+          </tb-dashboard-autocomplete>
+          <tb-queue-autocomplete
+            [queueType]="serviceType"
+            appearance="outline"
+            formControlName="defaultQueueName">
+          </tb-queue-autocomplete>
+          <tb-rule-chain-autocomplete
+            labelText="device-profile.default-edge-rule-chain"
+            appearance="outline"
+            formControlName="defaultEdgeRuleChainId"
+            [ruleChainType]="edgeRuleChainType">
+            <span tb-hint>{{'device-profile.default-edge-rule-chain-hint' | translate}}</span>
+          </tb-rule-chain-autocomplete>
+          <mat-form-field class="mat-block !hidden" appearance="outline">
+            <mat-label translate>device-profile.type</mat-label>
+            <mat-select formControlName="type" required>
+              @for (type of deviceProfileTypes; track type) {
+                <mat-option [value]="type">
+                  {{ deviceProfileTypeTranslations.get(type) | translate }}
+                </mat-option>
+              }
+            </mat-select>
+            @if (deviceProfileDetailsFormGroup.get('type').hasError('required')) {
+              <mat-error>{{ 'device-profile.type-required' | translate }}</mat-error>
+            }
+          </mat-form-field>
+          <tb-gallery-image-input class="flex-1"
+                          label="{{'device-profile.image' | translate}}"
+                          formControlName="image">
+          </tb-gallery-image-input>
+          <mat-form-field class="mat-block" appearance="outline">
+            <mat-label translate>device-profile.description</mat-label>
+            <textarea matInput formControlName="description" cdkTextareaAutosize cdkAutosizeMinRows="1" rows="1"></textarea>
+          </mat-form-field>
+        </fieldset>
+      </form>
+    </mat-step>
+    <mat-step [stepControl]="transportConfigFormGroup" [optional]="true">
+      <form [formGroup]="transportConfigFormGroup" style="padding-bottom: 16px;">
+        <ng-template matStepLabel>{{ 'device-profile.transport-configuration' | translate }}</ng-template>
+        <fieldset class="flex flex-col gap-2">
+          <mat-form-field class="mat-block" appearance="outline">
+            <mat-label translate>device-profile.transport-type</mat-label>
+            <mat-select formControlName="transportType" required>
+              @for (type of deviceTransportTypes; track type) {
+                <mat-option [value]="type">
+                  {{ deviceTransportTypeTranslations.get(type) | translate }}
+                </mat-option>
+              }
+            </mat-select>
+            @if (transportConfigFormGroup.get('transportType').value) {
+              <mat-hint>
+                {{ deviceTransportTypeHints.get(transportConfigFormGroup.get('transportType').value) | translate }}
+              </mat-hint>
+            }
+            @if (transportConfigFormGroup.get('transportType').hasError('required')) {
+              <mat-error>{{ 'device-profile.transport-type-required' | translate }}</mat-error>
+            }
+          </mat-form-field>
+          <tb-device-profile-transport-configuration
+            formControlName="transportConfiguration"
+            isAdd="true">
+          </tb-device-profile-transport-configuration>
+        </fieldset>
+      </form>
+    </mat-step>
+    <mat-step [stepControl]="provisionConfigFormGroup" [optional]="true">
+      <form [formGroup]="provisionConfigFormGroup" style="padding-bottom: 16px;">
+        <ng-template matStepLabel>{{ 'device-profile.device-provisioning' | translate }}</ng-template>
+        <tb-device-profile-provision-configuration
+          formControlName="provisionConfiguration">
+        </tb-device-profile-provision-configuration>
+      </form>
+    </mat-step>
+  </mat-horizontal-stepper>
+</div>
+<div mat-dialog-actions style="padding: 0">
+  <div class="dialog-actions-row flex flex-1 flex-row items-center justify-end">
+    @if (selectedIndex > 0) {
+      <button mat-stroked-button
+              [disabled]="(isLoading$ | async)"
+              (click)="previousStep()">{{ 'action.back' | translate }}</button>
+    }
+    <span class="flex-1"></span>
+    @if (showNext) {
+      <button mat-stroked-button
+              color="primary"
+              [disabled]="(isLoading$ | async)"
+              (click)="nextStep()">{{ 'action.next-with-label' | translate:{label: (getFormLabel(selectedIndex+1) | translate)} }}</button>
+    }
+  </div>
+  <mat-divider style="width: 100%"></mat-divider>
+  <div class="dialog-actions-row flex flex-1 flex-row items-center justify-end gap-2">
+    <button mat-button
+            [disabled]="(isLoading$ | async)"
+            (click)="cancel()">{{ 'action.cancel' | translate }}</button>
+    <button mat-raised-button
+            [disabled]="(isLoading$ | async)"
+            color="primary"
+            (click)="add()">{{ 'action.add' | translate }}</button>
+  </div>
+</div>
