@@ -42,6 +42,7 @@ if [[ ! -f "$MARKER" ]]; then
   log "fresh database detected, running schema install (load_demo=${LOAD_DEMO:-false})"
   java -cp "$JAR" ${JAVA_OPTS} \
     -Dloader.main=org.thingsboard.server.ThingsboardInstallApplication \
+    -Dinstall.data_dir="${BOXTECH_HOME}/data" \
     -Dinstall.load_demo="${LOAD_DEMO:-false}" \
     -Dinstall.upgrade=false \
     "$LAUNCHER"
@@ -54,4 +55,5 @@ fi
 log "starting BoxTech IoT Platform"
 exec java -cp "$JAR" ${JAVA_OPTS} \
   -Dloader.main=org.thingsboard.server.ThingsboardServerApplication \
+  -Dinstall.data_dir="${BOXTECH_HOME}/data" \
   "$LAUNCHER"

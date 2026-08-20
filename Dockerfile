@@ -61,6 +61,10 @@ RUN useradd \
         /var/log/boxtech
 
 COPY --from=build /boxtech.jar ${BOXTECH_HOME}/bin/boxtech.jar
+# ThingsBoard's installer and the running server both read widget bundles,
+# rule-chain templates and dashboards from this tree at runtime. It is not
+# inside the boot jar, so it must exist on the filesystem.
+COPY --from=build /src/application/src/main/data ${BOXTECH_HOME}/data
 COPY deploy/platform/entrypoint.sh /usr/local/bin/boxtech-entrypoint.sh
 
 RUN chmod +x /usr/local/bin/boxtech-entrypoint.sh \
