@@ -17,7 +17,6 @@ RUN --mount=type=cache,target=/root/.m2 \
     --mount=type=cache,target=/usr/local/share/.cache/yarn \
     mvn -B -ntp clean install \
     -pl application -am \
-    -P packaging \
     -DskipTests \
     -Dlicense.skip=true \
     -Dmaven.gitcommitid.skip=true \
@@ -25,15 +24,7 @@ RUN --mount=type=cache,target=/root/.m2 \
     -Dpkg.skip.rpm=true \
     -Dpkg.skip.zip=true \
     -Dpkg.package.phase=none \
-    && echo '--- application/target contents ---' \
-    && ls -lA application/target \
-    && boot_jar="$(find application/target -maxdepth 1 -name '*-boot.jar' -print -quit)" \
-    && if [ -z "$boot_jar" ]; then \
-         echo 'ERROR: Maven produced no *-boot.jar under application/target'; \
-         exit 1; \
-       fi \
-    && echo "using boot jar: $boot_jar" \
-    && cp "$boot_jar" /boxtech.jar \
+    && cp application/target/thingsboard-*-boot.jar /boxtech.jar \
     && ls -lh /boxtech.jar
 
 ##########################################################################
