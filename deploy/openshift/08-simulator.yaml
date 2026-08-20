@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
         - name: simulator
-          image: ghcr.io/GHCR_OWNER/boxtech-simulator:4.4.0
+          image: ghcr.io/muhammadumerrrrr/boxtech-simulator:4.4.0
           imagePullPolicy: Always
           envFrom:
             - configMapRef:

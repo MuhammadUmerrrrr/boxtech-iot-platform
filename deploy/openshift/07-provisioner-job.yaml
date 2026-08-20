@@ -33,7 +33,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: provisioner
-          image: ghcr.io/GHCR_OWNER/boxtech-provisioner:4.4.0
+          image: ghcr.io/muhammadumerrrrr/boxtech-provisioner:4.4.0
           imagePullPolicy: Always
           envFrom:
             - configMapRef:

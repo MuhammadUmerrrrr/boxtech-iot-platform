@@ -1,7 +1,7 @@
 # BoxTech IoT Platform (ThingsBoard CE monolith).
 #
 # Runs the PREBUILT image from GHCR. ThingsBoard is never compiled on OpenShift.
-# Replace GHCR_OWNER before applying - see README.md step 3.
+# Image owner is pinned below and in kustomization.yaml.
 #
 # No securityContext.runAsUser is set anywhere in this file. That is deliberate:
 # the restricted-v2 SCC assigns an arbitrary UID from the namespace range and
@@ -33,7 +33,7 @@ spec:
       terminationGracePeriodSeconds: 60
       containers:
         - name: platform
-          image: ghcr.io/GHCR_OWNER/boxtech-iot-platform:4.4.0
+          image: ghcr.io/muhammadumerrrrr/boxtech-iot-platform:4.4.0
           imagePullPolicy: Always
           ports:
             - name: http

@@ -23,13 +23,13 @@ resources:
   - 08-simulator.yaml
 
 images:
-  # ---- EDIT THESE THREE LINES: replace GHCR_OWNER with your GitHub username --
-  - name: ghcr.io/GHCR_OWNER/boxtech-iot-platform
-    newName: ghcr.io/GHCR_OWNER/boxtech-iot-platform
+  # ---- Image owner and tag for all three images ------------------------
+  - name: ghcr.io/muhammadumerrrrr/boxtech-iot-platform
+    newName: ghcr.io/muhammadumerrrrr/boxtech-iot-platform
     newTag: "4.4.0"
-  - name: ghcr.io/GHCR_OWNER/boxtech-provisioner
-    newName: ghcr.io/GHCR_OWNER/boxtech-provisioner
+  - name: ghcr.io/muhammadumerrrrr/boxtech-provisioner
+    newName: ghcr.io/muhammadumerrrrr/boxtech-provisioner
     newTag: "4.4.0"
-  - name: ghcr.io/GHCR_OWNER/boxtech-simulator
-    newName: ghcr.io/GHCR_OWNER/boxtech-simulator
+  - name: ghcr.io/muhammadumerrrrr/boxtech-simulator
+    newName: ghcr.io/muhammadumerrrrr/boxtech-simulator
     newTag: "4.4.0"
