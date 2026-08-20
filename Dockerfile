@@ -17,6 +17,7 @@ RUN --mount=type=cache,target=/root/.m2 \
     --mount=type=cache,target=/usr/local/share/.cache/yarn \
     mvn -B -ntp clean install \
     -pl application -am \
+    -P packaging \
     -DskipTests \
     -Dlicense.skip=true \
     -Dmaven.gitcommitid.skip=true \
