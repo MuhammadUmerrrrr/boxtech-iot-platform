@@ -1,6 +1,6 @@
 # Kustomize entry point.
 #
-#   oc apply -k deploy/openshift/ -n muhammadumer-dev
+#   oc apply -k deploy/openshift/ -n muhammadumerrrrr-dev
 #
 # Set your GHCR owner ONCE in the `images:` block below instead of editing every
 # manifest. Owner must be lowercase - GHCR rejects uppercase path segments.

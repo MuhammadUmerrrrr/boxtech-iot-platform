@@ -24,7 +24,7 @@ metadata:
     haproxy.router.openshift.io/timeout: 4h
 spec:
   # host is intentionally omitted - OpenShift generates
-  #   boxtech-muhammadumer-dev.<cluster-apps-domain>
+  #   boxtech-muhammadumerrrrr-dev.<cluster-apps-domain>
   # and issues a trusted wildcard certificate for it automatically.
   to:
     kind: Service

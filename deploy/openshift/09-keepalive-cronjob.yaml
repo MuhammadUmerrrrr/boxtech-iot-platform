@@ -16,7 +16,7 @@
 # revive the stack manually with the command in README.md "Waking the demo".
 #
 # Apply separately, on purpose:
-#   oc apply -f deploy/openshift/09-keepalive-cronjob.yaml -n muhammadumer-dev
+#   oc apply -f deploy/openshift/09-keepalive-cronjob.yaml -n muhammadumerrrrr-dev
 
 apiVersion: v1
 kind: ServiceAccount

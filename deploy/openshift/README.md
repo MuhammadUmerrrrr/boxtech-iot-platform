@@ -7,7 +7,7 @@ ThingsBoard is **never compiled on OpenShift**. GitHub Actions builds three
 them.
 
 ```
-GitHub Actions (4 vCPU / 16 GB)        OpenShift Sandbox (ns: muhammadumer-dev)
+GitHub Actions (4 vCPU / 16 GB)        OpenShift Sandbox (ns: muhammadumerrrrr-dev)
 ┌──────────────────────────┐           ┌──────────────────────────────────────┐
 │ Dockerfile               │           │          Route (edge TLS)            │
 │  stage 1: mvn + Angular  │  ghcr.io  │                 │                    │
@@ -118,18 +118,18 @@ oc login --token=YOUR_TOKEN --server=YOUR_SERVER
 ```
 
 ```bash
-oc project muhammadumer-dev
+oc project muhammadumerrrrr-dev
 ```
 
 ```bash
-oc apply -k deploy/openshift/ -n muhammadumer-dev
+oc apply -k deploy/openshift/ -n muhammadumerrrrr-dev
 ```
 
 Optional, and expected to fail if the Sandbox withholds RBAC — apply it
 separately so a rejection cannot fail the rest:
 
 ```bash
-oc apply -f deploy/openshift/09-keepalive-cronjob.yaml -n muhammadumer-dev
+oc apply -f deploy/openshift/09-keepalive-cronjob.yaml -n muhammadumerrrrr-dev
 ```
 
 ## Step 5 — Watch it come up
@@ -137,11 +137,11 @@ oc apply -f deploy/openshift/09-keepalive-cronjob.yaml -n muhammadumer-dev
 First boot runs the schema install and takes **3–6 minutes**.
 
 ```bash
-oc get pods -n muhammadumer-dev -w
+oc get pods -n muhammadumerrrrr-dev -w
 ```
 
 ```bash
-oc logs -f deploy/boxtech-platform -n muhammadumer-dev
+oc logs -f deploy/boxtech-platform -n muhammadumerrrrr-dev
 ```
 
 Wait for `Started ThingsboardServerApplication`. Then confirm the provisioner
@@ -149,16 +149,16 @@ finished — its log prints the demo credentials, the device id and the alarm
 thresholds:
 
 ```bash
-oc logs job/boxtech-provisioner -n muhammadumer-dev
+oc logs job/boxtech-provisioner -n muhammadumerrrrr-dev
 ```
 
 ## Step 6 — Get the public URL
 
 ```bash
-oc get route boxtech -n muhammadumer-dev -o jsonpath='https://{.spec.host}{"\n"}'
+oc get route boxtech -n muhammadumerrrrr-dev -o jsonpath='https://{.spec.host}{"\n"}'
 ```
 
-Roughly `https://boxtech-muhammadumer-dev.apps.CLUSTER.openshiftapps.com`.
+Roughly `https://boxtech-muhammadumerrrrr-dev.apps.CLUSTER.openshiftapps.com`.
 OpenShift generates the hostname and serves a trusted wildcard certificate — no
 DNS record, no domain purchase, no cert-manager.
 
@@ -169,7 +169,7 @@ DNS record, no domain purchase, no cert-manager.
 **Platform responds** — expect `200`:
 
 ```bash
-curl -s -o /dev/null -w '%{http_code}\n' "$(oc get route boxtech -n muhammadumer-dev -o jsonpath='https://{.spec.host}')/login"
+curl -s -o /dev/null -w '%{http_code}\n' "$(oc get route boxtech -n muhammadumerrrrr-dev -o jsonpath='https://{.spec.host}')/login"
 ```
 
 **UI and dashboard** — open the Route URL and sign in as
@@ -179,7 +179,7 @@ is that user's landing page, set by `set_default_dashboard` in `provision.py`.
 **Simulator** — a telemetry line every 2 seconds:
 
 ```bash
-oc logs -f deploy/boxtech-simulator -n muhammadumer-dev
+oc logs -f deploy/boxtech-simulator -n muhammadumerrrrr-dev
 ```
 
 **Telemetry reached the database** — the map marker moves and the speed/fuel
@@ -215,7 +215,7 @@ to the deliverable. Mitigations, in order of preference:
 Waking the demo:
 
 ```bash
-oc scale deployment/boxtech-postgres deployment/boxtech-platform deployment/boxtech-simulator --replicas=1 -n muhammadumer-dev
+oc scale deployment/boxtech-postgres deployment/boxtech-platform deployment/boxtech-simulator --replicas=1 -n muhammadumerrrrr-dev
 ```
 
 **2. The sandbox itself expires after 30 days.** It is renewable and there is no
@@ -234,7 +234,7 @@ requests 0.42 cores and 1.4 GB and caps at 2.3 cores and 4.5 GB — comfortably
 inside it. Confirm what you actually have:
 
 ```bash
-oc describe quota -n muhammadumer-dev && oc describe limitrange -n muhammadumer-dev
+oc describe quota -n muhammadumerrrrr-dev && oc describe limitrange -n muhammadumerrrrr-dev
 ```
 
 If a `LimitRange` caps per-container memory below 3 Gi, lower the platform limit
@@ -266,7 +266,7 @@ Both PVCs must go together — see the warning at the top of `03-pvc.yaml`. The
 unable to start.
 
 ```bash
-oc delete -k deploy/openshift/ -n muhammadumer-dev && oc delete pvc boxtech-postgres-data boxtech-platform-data -n muhammadumer-dev
+oc delete -k deploy/openshift/ -n muhammadumerrrrr-dev && oc delete pvc boxtech-postgres-data boxtech-platform-data -n muhammadumerrrrr-dev
 ```
 
 ## Demo credentials
