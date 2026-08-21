@@ -47,6 +47,15 @@ export interface HomeSection {
 
 export enum MenuId {
   home = 'home',
+  // BoxTech customer navigation. These exist so the customer-facing menu can
+  // read as a fleet product without touching the sections the tenant
+  // administrator uses - those keep ThingsBoard's own labels, where "device"
+  // and "alarm" are the correct words.
+  boxtech_overview = 'boxtech_overview',
+  boxtech_fleet = 'boxtech_fleet',
+  boxtech_vehicles = 'boxtech_vehicles',
+  boxtech_live_tracking = 'boxtech_live_tracking',
+  boxtech_alerts = 'boxtech_alerts',
   tenants = 'tenants',
   tenants_section = 'tenants_section',
   tenant_profiles = 'tenant_profiles',
@@ -128,6 +137,56 @@ export const menuSectionMap = new Map<MenuId, MenuSection>([
       type: 'link',
       path: '/home',
       icon: 'mdi:home-outline'
+    }
+  ],
+  [
+    MenuId.boxtech_overview,
+    {
+      id: MenuId.boxtech_overview,
+      name: 'boxtech.command-center',
+      type: 'link',
+      path: '/home',
+      icon: 'mdi:radar'
+    }
+  ],
+  [
+    MenuId.boxtech_fleet,
+    {
+      id: MenuId.boxtech_fleet,
+      name: 'boxtech.fleet',
+      type: 'toggle',
+      path: '/entities',
+      icon: 'mdi:truck-outline'
+    }
+  ],
+  [
+    MenuId.boxtech_vehicles,
+    {
+      id: MenuId.boxtech_vehicles,
+      name: 'boxtech.vehicles',
+      type: 'link',
+      path: '/entities/devices',
+      icon: 'mdi:truck-outline'
+    }
+  ],
+  [
+    MenuId.boxtech_live_tracking,
+    {
+      id: MenuId.boxtech_live_tracking,
+      name: 'boxtech.live-tracking',
+      type: 'link',
+      path: '/dashboards',
+      icon: 'mdi:map-marker-path'
+    }
+  ],
+  [
+    MenuId.boxtech_alerts,
+    {
+      id: MenuId.boxtech_alerts,
+      name: 'boxtech.alerts',
+      type: 'link',
+      path: '/alarms/alarms',
+      icon: 'mdi:bell-alert-outline'
     }
   ],
   [
@@ -1026,35 +1085,26 @@ const defaultUserMenuMap = new Map<Authority, MenuReference[]>([
   ],
   [
     Authority.CUSTOMER_USER,
+    // BoxTech fleet navigation. Assets, entity views and edge instances are
+    // dropped: a logistics customer has no use for them and they announce the
+    // underlying platform. Every entry below points at a route that already
+    // works - nothing here is a placeholder.
     [
-      {id: MenuId.home},
+      {id: MenuId.boxtech_overview},
       {
-        id: MenuId.monitor,
+        id: MenuId.boxtech_fleet,
         pages: [
-          {id: MenuId.dashboards},
-          {
-            id: MenuId.alarms_center,
-            pages: [
-              {id: MenuId.alarms}
-            ]
-          },
-          {
-            id: MenuId.notifications_center,
-            pages: [
-              {id: MenuId.notification_inbox}
-            ]
-          }
+          {id: MenuId.boxtech_vehicles},
+          {id: MenuId.boxtech_live_tracking}
         ]
       },
+      {id: MenuId.boxtech_alerts},
       {
-        id: MenuId.entities,
+        id: MenuId.notifications_center,
         pages: [
-          {id: MenuId.devices},
-          {id: MenuId.assets},
-          {id: MenuId.entity_views}
+          {id: MenuId.notification_inbox}
         ]
-      },
-      {id: MenuId.edge_instances}
+      }
     ]
   ]
 ]);

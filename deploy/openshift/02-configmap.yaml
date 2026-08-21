@@ -64,6 +64,10 @@ data:
   BOXTECH_CUSTOMER_EMAIL: "demo.user@demologistics.com"
   BOXTECH_DEVICE_NAME: "Demo Vehicle GPS Tracker"
   BOXTECH_DEVICE_TOKEN: "DEMO_VEHICLE_TRACKER_TOKEN"
+  # Fleet vehicles 2 and 3. The provisioner creates the devices with these
+  # tokens and the simulator streams to all three.
+  BOXTECH_DEVICE_TOKEN_2: "BT_TRK_002_TOKEN"
+  BOXTECH_DEVICE_TOKEN_3: "BT_TRK_003_TOKEN"
   BOXTECH_SPEED_LIMIT: "80"
   BOXTECH_FUEL_LIMIT: "20"
   BOXTECH_SIM_INTERVAL: "2"

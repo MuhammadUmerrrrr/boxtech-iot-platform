@@ -24,6 +24,8 @@ import requests
 
 BASE_URL = os.environ.get("TB_BASE_URL", "http://boxtech-platform:8080").rstrip("/")
 TOKEN = os.environ.get("BOXTECH_DEVICE_TOKEN", "DEMO_VEHICLE_TRACKER_TOKEN")
+TOKEN_2 = os.environ.get("BOXTECH_DEVICE_TOKEN_2", "BT_TRK_002_TOKEN")
+TOKEN_3 = os.environ.get("BOXTECH_DEVICE_TOKEN_3", "BT_TRK_003_TOKEN")
 INTERVAL_S = float(os.environ.get("BOXTECH_SIM_INTERVAL", "2"))
 SPEED_LIMIT = float(os.environ.get("BOXTECH_SPEED_LIMIT", "80"))
 FUEL_LIMIT = float(os.environ.get("BOXTECH_FUEL_LIMIT", "20"))
@@ -92,9 +94,9 @@ def bearing(a: tuple[float, float], b: tuple[float, float]) -> float:
     return (math.degrees(math.atan2(y, x)) + 360) % 360
 
 
-def send(payload: dict) -> bool:
+def send(token: str, payload: dict) -> bool:
     try:
-        r = requests.post(f"{BASE_URL}/api/v1/{TOKEN}/telemetry", json=payload, timeout=10)
+        r = requests.post(f"{BASE_URL}/api/v1/{token}/telemetry", json=payload, timeout=10)
         if r.ok:
             return True
         log(f"telemetry rejected: HTTP {r.status_code} {r.text[:200]}")
@@ -103,41 +105,41 @@ def send(payload: dict) -> bool:
     return False
 
 
-def main() -> int:
-    wait_for_platform()
+class Vehicle:
+    """One tracker. The physics and phase machine are exactly the single-vehicle
+    behaviour that shipped before; this only gives each vehicle its own copy of
+    the state so several can run from one process."""
 
-    log(f"streaming to {BASE_URL} as device token '{TOKEN}' every {INTERVAL_S:g}s")
-    log(f"thresholds: overspeed > {SPEED_LIMIT:g} km/h, low fuel < {FUEL_LIMIT:g}%")
+    def __init__(self, name: str, token: str, segment: int = 0,
+                 phase: str = "cruise", fuel: float = 78.0, battery: float = 96.0):
+        self.name = name
+        self.token = token
+        self.segment = segment
+        self.progress = 0.0
+        self.fuel = fuel
+        self.battery = battery
+        self.odometer = 0.0
+        self.phase = phase
+        self.phase_tick = 0
+        self.sent = 0
 
-    segment = 0
-    progress = 0.0
-    fuel = 78.0
-    battery = 96.0
-    odometer = 0.0
-    phase = "cruise"
-    phase_tick = 0
-    sent = 0
+    def tick(self) -> None:
+        a = ROUTE[self.segment]
+        b = ROUTE[(self.segment + 1) % len(ROUTE)]
+        lat, lon = interpolate(a, b, self.progress)
 
-    while _running:
-        a = ROUTE[segment]
-        b = ROUTE[(segment + 1) % len(ROUTE)]
-        lat, lon = interpolate(a, b, progress)
-
-        if phase == "cruise":
+        if self.phase == "cruise":
             # Sinusoidal traffic flow that brushes the limit without holding above it.
             # Amplitude and jitter are bounded so the peak (58 + 17 + 3 = 78) stays
             # under the 80 km/h threshold: cruise must not raise the overspeed alarm.
-            speed = 58 + 17 * math.sin(phase_tick / 7.0) + random.uniform(-3, 3)
+            speed = 58 + 17 * math.sin(self.phase_tick / 7.0) + random.uniform(-3, 3)
             ignition = True
-        elif phase == "overspeed":
+        elif self.phase == "overspeed":
             # Trough (88 - 4 - 2 = 82) stays clear of the threshold, so the CRITICAL
             # alarm holds for the whole phase instead of flapping on a dip to 80.
-            speed = 88 + 4 * math.sin(phase_tick / 4.0) + random.uniform(-2, 2)
+            speed = 88 + 4 * math.sin(self.phase_tick / 4.0) + random.uniform(-2, 2)
             ignition = True
-        elif phase == "idle":
-            speed = 0.0
-            ignition = False
-        else:  # offline
+        else:  # idle or offline
             speed = 0.0
             ignition = False
 
@@ -145,23 +147,23 @@ def main() -> int:
 
         # Consumption tracks how hard the vehicle is working; refuel when nearly dry.
         if ignition:
-            fuel -= 0.05 + speed / 2400.0
-            battery = min(100.0, battery + 0.02)
+            self.fuel -= 0.05 + speed / 2400.0
+            self.battery = min(100.0, self.battery + 0.02)
         else:
-            battery -= 0.01
-        if fuel <= 8.0:
-            log("refuelling: tank back to 85%")
-            fuel = 85.0
-        fuel = max(0.0, round(fuel, 1))
-        battery = round(max(0.0, min(100.0, battery)), 1)
+            self.battery -= 0.01
+        if self.fuel <= 8.0:
+            log(f"{self.name}: refuelling, tank back to 85%")
+            self.fuel = 85.0
+        self.fuel = max(0.0, round(self.fuel, 1))
+        self.battery = round(max(0.0, min(100.0, self.battery)), 1)
 
         # Engine bay runs hotter the faster it goes.
         temperature = round(29.0 + speed / 22.0 + random.uniform(-0.4, 0.4), 1)
-        odometer = round(odometer + speed * INTERVAL_S / 3600.0, 3)
+        self.odometer = round(self.odometer + speed * INTERVAL_S / 3600.0, 3)
 
-        if phase == "offline":
-            if phase_tick == 0:
-                log(f"simulating signal loss for {int(OFFLINE_TICKS * INTERVAL_S)}s "
+        if self.phase == "offline":
+            if self.phase_tick == 0:
+                log(f"{self.name}: signal loss for {int(OFFLINE_TICKS * INTERVAL_S)}s "
                     f"(device will be marked offline)")
         else:
             payload = {
@@ -170,36 +172,58 @@ def main() -> int:
                 "speed": speed,
                 "heading": round(bearing(a, b), 1),
                 "ignition": ignition,
-                "battery": battery,
-                "fuel": fuel,
+                "battery": self.battery,
+                "fuel": self.fuel,
                 "temperature": temperature,
-                "odometer": odometer,
+                "odometer": self.odometer,
             }
-            if send(payload):
-                sent += 1
-                if sent % 15 == 0:
-                    log(f"{sent} samples sent | speed {speed:g} km/h | fuel {fuel:g}% "
-                        f"| phase {phase}")
+            if send(self.token, payload):
+                self.sent += 1
+                if self.sent % 15 == 0:
+                    log(f"{self.name}: {self.sent} samples | speed {speed:g} km/h "
+                        f"| fuel {self.fuel:g}% | phase {self.phase}")
 
         # Advance along the route only while moving.
         if speed > 0:
-            progress += max(0.02, speed / 1500.0)
-            while progress >= 1.0:
-                progress -= 1.0
-                segment = (segment + 1) % len(ROUTE)
+            self.progress += max(0.02, speed / 1500.0)
+            while self.progress >= 1.0:
+                self.progress -= 1.0
+                self.segment = (self.segment + 1) % len(ROUTE)
 
-        phase_tick += 1
+        self.phase_tick += 1
         limits = {"cruise": CRUISE_TICKS, "overspeed": OVERSPEED_TICKS,
                   "idle": IDLE_TICKS, "offline": OFFLINE_TICKS}
-        if phase_tick >= limits[phase]:
-            phase = {"cruise": "overspeed", "overspeed": "idle",
-                     "idle": "offline", "offline": "cruise"}[phase]
-            phase_tick = 0
-            log(f"entering '{phase}' phase")
+        if self.phase_tick >= limits[self.phase]:
+            self.phase = {"cruise": "overspeed", "overspeed": "idle",
+                          "idle": "offline", "offline": "cruise"}[self.phase]
+            self.phase_tick = 0
+            log(f"{self.name}: entering '{self.phase}' phase")
 
+
+def main() -> int:
+    wait_for_platform()
+
+    # Staggered so the three vehicles are never in the same phase at the same
+    # moment - the fleet view is meant to show a mix of online and offline.
+    fleet = [
+        Vehicle("BT-TRK-001", TOKEN, segment=0, phase="cruise", fuel=78.0, battery=96.0),
+        Vehicle("BT-TRK-002", TOKEN_2, segment=2, phase="overspeed", fuel=46.0, battery=88.0),
+        Vehicle("BT-TRK-003", TOKEN_3, segment=4, phase="idle", fuel=24.0, battery=71.0),
+    ]
+
+    log(f"streaming to {BASE_URL} every {INTERVAL_S:g}s")
+    for v in fleet:
+        log(f"  vehicle {v.name} as device token '{v.token}'")
+    log(f"thresholds: overspeed > {SPEED_LIMIT:g} km/h, low fuel < {FUEL_LIMIT:g}%")
+
+    while _running:
+        for v in fleet:
+            if not _running:
+                break
+            v.tick()
         time.sleep(INTERVAL_S)
 
-    log(f"stopped after {sent} samples")
+    log(f"stopped after {sum(v.sent for v in fleet)} samples")
     return 0
 
 

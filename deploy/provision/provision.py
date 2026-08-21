@@ -20,6 +20,8 @@ from urllib.parse import parse_qs, urlparse
 
 import requests
 
+import fleet_dashboards
+
 BASE_URL = os.environ.get("TB_BASE_URL", "http://boxtech-platform:8080").rstrip("/")
 
 SYSADMIN_EMAIL = os.environ.get("TB_SYSADMIN_EMAIL", "sysadmin@thingsboard.org")
@@ -35,6 +37,8 @@ CUSTOMER_USER_PASSWORD = os.environ.get("BOXTECH_CUSTOMER_PASSWORD", "Password12
 
 DEVICE_NAME = os.environ.get("BOXTECH_DEVICE_NAME", "Demo Vehicle GPS Tracker")
 DEVICE_TOKEN = os.environ.get("BOXTECH_DEVICE_TOKEN", "DEMO_VEHICLE_TRACKER_TOKEN")
+DEVICE_TOKEN_2 = os.environ.get("BOXTECH_DEVICE_TOKEN_2", "BT_TRK_002_TOKEN")
+DEVICE_TOKEN_3 = os.environ.get("BOXTECH_DEVICE_TOKEN_3", "BT_TRK_003_TOKEN")
 DEVICE_PROFILE_NAME = os.environ.get("BOXTECH_DEVICE_PROFILE", "BoxTech Vehicle Tracker")
 
 DASHBOARD_TITLE = "Vehicle Tracking Dashboard"
@@ -345,30 +349,37 @@ def ensure_customer_user(tb: Api, customer: dict) -> dict:
     return user
 
 
-def ensure_device(tb: Api, profile: dict, customer: dict) -> dict:
+def ensure_device(tb: Api, profile: dict, customer: dict,
+                  name: str | None = None, token: str | None = None,
+                  label: str | None = None) -> dict:
+    # Defaults keep the original single-device behaviour; the fleet passes
+    # explicit names so the extra vehicles are additive.
+    name = name or DEVICE_NAME
+    token = token or DEVICE_TOKEN
+    label = label or "Karachi fleet - demo unit"
     try:
-        device = tb.get("/api/tenant/device", params={"deviceName": DEVICE_NAME})
-        log(f"device '{DEVICE_NAME}' already exists")
+        device = tb.get("/api/tenant/device", params={"deviceName": name})
+        log(f"device '{name}' already exists")
     except RuntimeError:
         payload = {
             "device": {
-                "name": DEVICE_NAME,
-                "label": "Karachi fleet - demo unit",
+                "name": name,
+                "label": label,
                 "deviceProfileId": profile["id"],
                 "additionalInfo": {"description": "Simulated GV30 GPS tracker."},
             },
             "credentials": {
                 "credentialsType": "ACCESS_TOKEN",
-                "credentialsId": DEVICE_TOKEN,
+                "credentialsId": token,
             },
         }
         device = tb.post("/api/device-with-credentials", json=payload)
-        log(f"created device '{DEVICE_NAME}' with access token '{DEVICE_TOKEN}'")
+        log(f"created device '{name}' with access token '{token}'")
 
     assigned = (device.get("customerId") or {}).get("id")
     if assigned != customer["id"]["id"]:
         device = tb.post(f"/api/customer/{customer['id']['id']}/device/{device['id']['id']}")
-        log(f"assigned device to customer '{CUSTOMER_TITLE}'")
+        log(f"assigned '{name}' to customer '{CUSTOMER_TITLE}'")
 
     tb.post(
         f"/api/plugins/telemetry/DEVICE/{device['id']['id']}/attributes/SERVER_SCOPE",
@@ -416,6 +427,71 @@ def set_default_dashboard(tb: Api, user: dict, dashboard: dict) -> None:
     log("set the dashboard as the customer user's landing page")
 
 
+
+# --------------------------------------------------------------------------
+# Fleet Command Center
+# --------------------------------------------------------------------------
+
+def ensure_fleet(tb: Api, profile: dict, customer: dict) -> list:
+    """The three demo vehicles.
+
+    The first keeps its original name because the existing dashboard, report and
+    screenshots all refer to it; the fleet identity is carried on the label
+    instead, which is what the fleet views display. The other two are additive -
+    nothing about the original device changes except that label.
+    """
+    fleet = [ensure_device(tb, profile, customer, label="BT-TRK-001")]
+    for name, token in [("BT-TRK-002", DEVICE_TOKEN_2), ("BT-TRK-003", DEVICE_TOKEN_3)]:
+        fleet.append(ensure_device(tb, profile, customer, name, token, name))
+    log(f"fleet: {len(fleet)} vehicles, inactivity timeout "
+        f"{INACTIVITY_TIMEOUT_MS // 1000}s (drives online/offline)")
+    return fleet
+
+
+def ensure_fleet_overview(tb: Api, customer: dict) -> dict:
+    """Build and upload the Command Center, idempotently."""
+    title = fleet_dashboards.FLEET_DASHBOARD_TITLE
+    catalogue = fleet_dashboards.widget_catalogue(tb)
+    page = tb.get("/api/tenant/dashboards?pageSize=200&page=0")
+    existing = next((d for d in page["data"] if d["title"] == title), None)
+
+    body = fleet_dashboards.build_fleet_overview(catalogue)
+    if existing:
+        body["id"] = existing["id"]
+        dashboard = tb.post("/api/dashboard", json=body)
+        log(f"updated dashboard: {title}")
+    else:
+        dashboard = tb.post("/api/dashboard", json=body)
+        log(f"created dashboard: {title}")
+
+    did = dashboard["id"]["id"]
+    assigned = dashboard.get("assignedCustomers") or []
+    if not any(a.get("customerId", {}).get("id") == customer["id"]["id"] for a in assigned):
+        dashboard = tb.post(f"/api/customer/{customer['id']['id']}/dashboard/{did}")
+        log(f"assigned {title} to '{CUSTOMER_TITLE}'")
+    return dashboard
+
+
+def set_home_dashboard(tb: Api, customer: dict, dashboard: dict) -> None:
+    """Replace the stock ThingsBoard home page for this customer.
+
+    Without this the customer's Home is ThingsBoard's own page, which carries a
+    Documentation card linking to thingsboard.io - the single most obvious tell
+    that this is a rebranded install. This is also what makes the Command Center
+    menu entry, which points at /home, resolve to the fleet dashboard.
+    """
+    full = tb.get(f"/api/customer/{customer['id']['id']}")
+    info = full.get("additionalInfo") or {}
+    if info.get("homeDashboardId") == dashboard["id"]["id"]:
+        log("home dashboard already set")
+        return
+    info["homeDashboardId"] = dashboard["id"]["id"]
+    info["homeDashboardHideToolbar"] = True
+    full["additionalInfo"] = info
+    tb.post("/api/customer", json=full)
+    log(f"customer home page is now {fleet_dashboards.FLEET_DASHBOARD_TITLE}")
+
+
 def main() -> int:
     wait_for_platform(BASE_URL)
 
@@ -433,9 +509,14 @@ def main() -> int:
     profile = ensure_device_profile(tb)
     customer = ensure_customer(tb)
     user = ensure_customer_user(tb, customer)
-    device = ensure_device(tb, profile, customer)
+    fleet = ensure_fleet(tb, profile, customer)
+    device = fleet[0]
     dashboard = ensure_dashboard(tb, device, customer)
     set_default_dashboard(tb, user, dashboard)
+
+    # The Command Center is the customer's landing page; /home resolves to it.
+    command_centre = ensure_fleet_overview(tb, customer)
+    set_home_dashboard(tb, customer, command_centre)
 
     log("")
     log("=" * 62)
