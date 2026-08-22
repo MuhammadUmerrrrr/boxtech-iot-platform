@@ -415,16 +415,35 @@ def ensure_dashboard(tb: Api, device: dict, customer: dict) -> dict:
     return dashboard
 
 
-def set_default_dashboard(tb: Api, user: dict, dashboard: dict) -> None:
+def clear_user_default_dashboard(tb: Api, user: dict) -> None:
+    """Make sure the customer user has no user-level default dashboard.
+
+    AuthService.defaultUrl() picks 'home' first and then overrides it when the
+    user carries additionalInfo.defaultDashboardId:
+
+        result = this.router.parseUrl('home');
+        if (this.userHasDefaultDashboard(authState)) {
+          result = this.router.parseUrl(`dashboards/${dashboardId}`);
+        }
+
+    So a user-level default is shown *instead of* /home at login. The landing
+    page for this customer is the Fleet Command Center, which is a customer-level
+    home dashboard, and /home is what resolves it. Leaving a user-level default
+    pointing at the Vehicle Tracking Dashboard made that dashboard appear first
+    and the Command Center only after navigating to /home.
+
+    Clearing rather than simply not setting it matters: the value persists in the
+    database from earlier provisioning runs, so it has to be actively removed.
+    """
     info = dict(user.get("additionalInfo") or {})
-    if info.get("defaultDashboardId") == dashboard["id"]["id"]:
+    if "defaultDashboardId" not in info and "defaultDashboardFullscreen" not in info:
         return
-    info["defaultDashboardId"] = dashboard["id"]["id"]
-    info["defaultDashboardFullscreen"] = False
+    info.pop("defaultDashboardId", None)
+    info.pop("defaultDashboardFullscreen", None)
     body = dict(user)
     body["additionalInfo"] = info
     tb.post("/api/user", params={"sendActivationMail": "false"}, json=body)
-    log("set the dashboard as the customer user's landing page")
+    log("cleared the user-level default dashboard so login lands on /home")
 
 
 
@@ -512,7 +531,7 @@ def main() -> int:
     fleet = ensure_fleet(tb, profile, customer)
     device = fleet[0]
     dashboard = ensure_dashboard(tb, device, customer)
-    set_default_dashboard(tb, user, dashboard)
+    clear_user_default_dashboard(tb, user)
 
     # The Command Center is the customer's landing page; /home resolves to it.
     command_centre = ensure_fleet_overview(tb, customer)
